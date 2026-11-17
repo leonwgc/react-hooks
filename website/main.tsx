@@ -11,6 +11,7 @@ import {
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { catalog, type HookName } from "./catalog";
+import { SyntaxCode, GuideCode } from "./SyntaxCode";
 import Guide from "./content/guide.mdx";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
@@ -71,7 +72,13 @@ function LiveDemo({ name }: { name: HookName }) {
     </DemoBoundary>
   );
 }
-function CodeBlock({ code }: { code: string }) {
+function CodeBlock({
+  code,
+  language = "tsx",
+}: {
+  code: string;
+  language?: string;
+}) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
@@ -92,7 +99,7 @@ function CodeBlock({ code }: { code: string }) {
         {failed ? "请手动复制" : copied ? "已复制 ✓" : "复制代码"}
       </button>
       <pre tabIndex={0}>
-        <code>{code}</code>
+        <SyntaxCode code={code} language={language} />
       </pre>
     </div>
   );
@@ -149,65 +156,14 @@ function Home() {
             <span className="tag">React</span>
           </div>
           <div className="hero-code-body">
-            <div className="line">
-              <b>01</b>
-              <span>
-                <i>import</i> {"{"} <strong>useBoolean</strong> {"}"}
-              </span>
-            </div>
-            <div className="line">
-              <b>02</b>
-              <span>
-                {" "}
-                <i>from</i> <q>'@leonwgc/react-hooks'</q>;
-              </span>
-            </div>
-            <div className="line">
-              <b>03</b>
-            </div>
-            <div className="line">
-              <b>04</b>
-              <span>
-                <i>function</i> <strong>Notification</strong>() {"{"}
-              </span>
-            </div>
-            <div className="line">
-              <b>05</b>
-              <span>
-                {" "}
-                <i>const</i> notice = <strong>useBoolean</strong>(<q>false</q>);
-              </span>
-            </div>
-            <div className="line">
-              <b>06</b>
-            </div>
-            <div className="line">
-              <b>07</b>
-              <span>
-                {" "}
-                <i>return</i> (
-              </span>
-            </div>
-            <div className="line">
-              <b>08</b>
-              <span> {"<button onClick={notice.toggle}>"}</span>
-            </div>
-            <div className="line">
-              <b>09</b>
-              <span> {'{notice.value ? "开启" : "关闭"}'}</span>
-            </div>
-            <div className="line">
-              <b>10</b>
-              <span> {"</button>"}</span>
-            </div>
-            <div className="line">
-              <b>11</b>
-              <span> );</span>
-            </div>
-            <div className="line">
-              <b>12</b>
-              <span>{"}"}</span>
-            </div>
+            {'import { useBoolean }\n  from \'@leonwgc/react-hooks\';\n\nfunction Notification() {\n  const notice = useBoolean(false);\n\n  return (\n    <button onClick={notice.toggle}>\n      {notice.value ? "开启" : "关闭"}\n    </button>\n  );\n}'
+              .split("\n")
+              .map((line, index) => (
+                <div className="line" key={index}>
+                  <b aria-hidden="true">{String(index + 1).padStart(2, "0")}</b>
+                  <SyntaxCode code={line} />
+                </div>
+              ))}
           </div>
           <div className="hero-preview">
             <span className="preview-label">
@@ -647,8 +603,8 @@ function App() {
               {route === "/guide" ? (
                 <article className="doc-article guide-content">
                   <div className="breadcrumb">文档 / 使用指南</div>
-                  <Guide />
-                  <CodeBlock code={install} />
+                  <Guide components={{ code: GuideCode }} />
+                  <CodeBlock code={install} language="bash" />
                 </article>
               ) : (
                 <HookPage key={route} name={route.split("/")[2] ?? ""} />

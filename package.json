@@ -41,7 +41,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "format": "prettier --write src docs tests *.ts *.json README.md",
+    "format": "prettier --write src website tests *.ts *.json README.md",
     "check": "npm run typecheck && npm test && npm run build && npm run docs:build",
     "prepare": "npm run build"
   },

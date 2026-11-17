@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { catalog } from "../../docs/catalog";
+import { catalog } from "../../website/catalog";
 
 test("home, theme and guide work", async ({ page }) => {
   await page.goto("");
@@ -41,7 +41,7 @@ test("all 40 hook routes render their own demo and source without page errors", 
     await expect(page.locator(".demo-content")).not.toContainText(
       "示例暂时无法运行",
     );
-    await page.getByText("查看完整示例源码", { exact: true }).click();
+    await page.locator(".source-details summary").click();
     await expect(page.locator(".source-details code")).toContainText(hook.name);
     await expect(
       page.getByRole("heading", { name: "行为与边界", exact: true }),
@@ -73,7 +73,9 @@ test("requests show failure, retry and cancellation", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("模拟服务暂时不可用");
   await page.getByLabel("模拟请求失败").uncheck();
   await page.getByRole("button", { name: "重试", exact: true }).click();
-  await expect(page.getByText("请求成功", { exact: true })).toBeVisible();
+  await expect(
+    page.locator(".demo-content").getByText("请求成功", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "获取文章" }).click();
   await page.getByRole("button", { name: "取消", exact: true }).click();
   await expect(page.getByText("正在获取数据…", { exact: true })).toHaveCount(0);
@@ -230,4 +232,41 @@ test("desktop screenshots cover homepage and documentation", async ({
     path: "test-results/docs-desktop.png",
     fullPage: true,
   });
+});
+
+test("source and guide code highlight keywords without changing copy text", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("#/guide");
+  const guideCode = page
+    .locator(".guide-content pre code.language-tsx")
+    .first();
+  await expect(guideCode.locator(".code-token--keyword").first()).toHaveText(
+    "import",
+  );
+  const light = await guideCode
+    .locator(".code-token--keyword")
+    .first()
+    .evaluate((el) => getComputedStyle(el).color);
+  await page.getByRole("button", { name: "切换深色主题" }).click();
+  const dark = await guideCode
+    .locator(".code-token--keyword")
+    .first()
+    .evaluate((el) => getComputedStyle(el).color);
+  expect(dark).not.toBe(light);
+  await page.goto("#/hooks/useForm");
+  await page.locator(".source-details summary").click();
+  const source = page.locator(".source-details code");
+  await expect(source.locator(".code-token--keyword").first()).toHaveText(
+    "import",
+  );
+  await page
+    .locator(".source-details")
+    .getByRole("button", { name: "复制代码" })
+    .click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
+    await source.textContent(),
+  );
 });

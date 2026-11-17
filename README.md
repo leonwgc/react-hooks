@@ -136,7 +136,7 @@ npm test                # Hooks 行为与 SSR 测试
 npx playwright install chromium
 npm run test:e2e        # 文档浏览器交互测试
 npm run build           # dist/：ESM、CJS、类型声明、source maps
-npm run docs:build      # site-dist/：静态文档站
+npm run docs:build      # docs/：提交到 master 的静态站点
 npm run docs:preview    # 预览生产构建
 npm run check           # 类型检查、单元测试、库构建、站点构建
 npm run format          # 格式化
@@ -144,12 +144,13 @@ npm run format          # 格式化
 
 ```text
 src/                    # 按职责分组的 Hooks 与内部工具
-docs/
+website/                # 文档站源码
   content/              # MDX 使用指南
   demos/                # 每个 Hook 的独立可运行示例
   catalog.ts            # 文档目录、API 与边界说明
+docs/                   # Vite 生成的 GitHub Pages 发布产物
 tests/                  # 行为测试、SSR、类型约束及浏览器测试
-.github/workflows/      # React 18/19 验证与 GitHub Pages 部署
+.github/workflows/      # React 18/19 与文档站验证
 vite.config.ts          # Vite 库模式
 vite.docs.config.ts     # 文档站构建，base 为 /react-hooks/
 package.json            # 唯一依赖与命令入口
@@ -158,9 +159,11 @@ package-lock.json       # npm 锁文件
 
 ## 验证与部署
 
-GitHub Actions 对 React 18、19 分别运行类型与行为检查，构建库和文档站，并在 Chromium 中验证关键交互。只有检查成功，推送到 `master` 才会部署到 GitHub Pages；Pull Request 运行检查但不会发布。
+GitHub Actions 对 React 18、19 分别运行类型与行为检查，构建库和文档站，并在 Chromium 中验证关键交互。每个阶段先在本地完成检查，再运行 `npm run docs:build`，将 `docs/` 产物与源码一起提交并推送到 `master`。分支发布由 GitHub Pages 独立触发，不等待验证工作流。Pull Request 不更新发布分支。
 
-Pages 设置应选择 **GitHub Actions** 作为 Source。站点地址为 <https://leonwgc.github.io/react-hooks/>，使用 hash 路由，因此直接刷新 Hook 页面也能正常加载。更换仓库名时同步修改 `vite.docs.config.ts` 的 `base` 和本文链接。
+Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` 保存可编辑源码，`docs/` 仅保存构建产物与 `.nojekyll`，请勿手动编辑构建产物。站点地址为 <https://leonwgc.github.io/react-hooks/>，使用 hash 路由，因此直接刷新 Hook 页面也能正常加载。更换仓库名时同步修改 `vite.docs.config.ts` 的 `base` 和本文链接。
+
+文档源码高亮参考 Atelier UI 的 token 分类策略，采用本地轻量实现并支持明暗主题；来源与适配说明见 [website/SOURCE.md](./website/SOURCE.md)。
 
 工作流不会发布 npm 包。需要发布时，应先审阅版本与产物，执行 `npm pack --dry-run`，再由有 scope 权限的维护者显式发布。
 

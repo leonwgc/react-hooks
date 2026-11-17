@@ -1,0 +1,1 @@
+import{E as e,x as t}from"./index-XNdKhoZ6.js";var n=e();function r(){let[e,r]=t({defaultValue:3});return(0,n.jsxs)(`div`,{className:`demo-row`,children:[(0,n.jsx)(`button`,{onClick:()=>r(e=>e-1),children:`−`}),(0,n.jsx)(`output`,{"aria-label":`数量`,children:e}),(0,n.jsx)(`button`,{onClick:()=>r(e=>e+1),children:`+`})]})}export{r as default};

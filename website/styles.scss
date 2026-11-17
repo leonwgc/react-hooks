@@ -1569,3 +1569,50 @@ dialog h3 {
     transition-duration: 0.01ms !important;
   }
 }
+
+.syntax-code {
+  --syntax-comment: #68778d;
+  --syntax-keyword: #a035a5;
+  --syntax-string: #217447;
+  --syntax-function: #235ab3;
+  --syntax-number: #a14f19;
+  --syntax-tag: #b33758;
+  --syntax-punctuation: #53637a;
+  .code-token--comment,
+  .code-token--prolog {
+    color: var(--syntax-comment);
+  }
+  .code-token--keyword,
+  .code-token--operator {
+    color: var(--syntax-keyword);
+  }
+  .code-token--string,
+  .code-token--attr-value,
+  .code-token--template-string {
+    color: var(--syntax-string);
+  }
+  .code-token--function,
+  .code-token--class-name {
+    color: var(--syntax-function);
+  }
+  .code-token--number,
+  .code-token--boolean {
+    color: var(--syntax-number);
+  }
+  .code-token--tag,
+  .code-token--attr-name {
+    color: var(--syntax-tag);
+  }
+  .code-token--punctuation {
+    color: var(--syntax-punctuation);
+  }
+}
+[data-theme="dark"] .syntax-code {
+  --syntax-comment: #94a3b8;
+  --syntax-keyword: #d9a4ec;
+  --syntax-string: #9bd3a9;
+  --syntax-function: #8cbdff;
+  --syntax-number: #efbb85;
+  --syntax-tag: #f6a5b8;
+  --syntax-punctuation: #b5c2d8;
+}
