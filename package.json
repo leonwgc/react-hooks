@@ -1,0 +1,70 @@
+{
+  "name": "@leonwgc/react-hooks",
+  "version": "0.1.0",
+  "description": "Typed, UI-independent React hooks for modern websites, animation, forms and applications",
+  "type": "module",
+  "license": "MIT",
+  "author": "leonwgc",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/leonwgc/react-hooks.git"
+  },
+  "homepage": "https://leonwgc.github.io/react-hooks/",
+  "sideEffects": false,
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    }
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "peerDependencies": {
+    "react": "^18.0.0 || ^19.0.0"
+  },
+  "scripts": {
+    "dev": "vite --config vite.docs.config.ts",
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "docs:build": "vite build --config vite.docs.config.ts",
+    "docs:preview": "vite preview --config vite.docs.config.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "format": "prettier --write src docs tests *.ts *.json README.md",
+    "check": "npm run typecheck && npm test && npm run build && npm run docs:build",
+    "prepare": "npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@mdx-js/rollup": "^3.1.1",
+    "@playwright/test": "^1.65.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@types/mdx": "^2.0.14",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^29.1.1",
+    "prettier": "^3.10.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "sass": "^1.108.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
+  }
+}

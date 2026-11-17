@@ -1,0 +1,93 @@
+# 从一个 Hook 开始
+
+Web Hooks 是面向各类 Web 站点的 React Hooks 库。它提供 40 个与 UI 无关的 Hooks，覆盖状态、浏览器交互、异步数据、列表、动画与表单。
+
+## 安装与使用
+
+当前版本通过 GitHub 提供源码，尚未发布到 npm registry。安装时会通过 `prepare` 自动构建库，需要 Node.js 22.12+、npm 和 Git。
+
+```bash
+npm install git+https://github.com/leonwgc/react-hooks.git
+```
+
+然后在已有的 React 18 或 19 项目中使用：
+
+```tsx
+import { useBoolean } from "@leonwgc/react-hooks";
+
+export function NotificationSwitch() {
+  const notification = useBoolean(false);
+  return (
+    <button onClick={notification.toggle}>
+      {notification.value ? "关闭通知" : "开启通知"}
+    </button>
+  );
+}
+```
+
+也可以克隆仓库，运行 `npm install`、`npm pack`，再在消费项目中安装生成的 `.tgz` 文件。包提供 ESM、CommonJS 和 TypeScript 声明，React 为 peer dependency；核心无第三方运行时依赖。
+
+## 组合，而不是绑定
+
+Hooks 管理逻辑，UI 由你决定。文档示例使用原生 HTML、React 和 SCSS，不依赖组件库。可将返回状态和事件连接到已有设计系统。
+
+搜索列表使用 `useTable`，跨页选择使用 `useSelection`。编辑面板使用 `useEditor`，字段管理使用 `useForm`。这些能力可以单独使用，也可以组合在同一个页面中。
+
+## 请求与取消
+
+`useRequest` 默认手动触发。自动执行需要显式提供 `manual: false` 和 `defaultParams`。
+
+```tsx
+const request = useRequest(
+  async ({ signal }, id: string) => {
+    const response = await fetch(`/api/articles/${id}`, { signal });
+    if (!response.ok) throw new Error("文章加载失败");
+    return response.json();
+  },
+  { manual: false, defaultParams: ["42"] },
+);
+```
+
+`run` 通过 `error` 暴露失败，适合事件处理；`runAsync` 和 `refreshAsync` 返回 Promise，需要捕获拒绝。新请求会取消旧请求，并忽略迟到的结果。取消旧调用时，它的 Promise 拒绝为 `AbortError`。轮询等待上一轮完成后再开始间隔，不重叠请求。
+
+真正停止网络请求需要服务函数使用传入的 `signal`。取消不能撤回已经到达服务器的写操作。缓存和乐观更新由应用或专门的数据层负责。
+
+## 表单约定
+
+表单值采用不可变普通对象，字段路径使用点号，例如 `profile.name`、`contacts.0.email`。类型路径最多展开 5 层。校验函数返回错误字符串；返回 `undefined` 表示通过。支持同步、异步与跨字段规则。
+
+默认提交时执行所有校验，提交后修改字段会重新校验。过期结果不会覆盖新值。`handleSubmit` 防止重复提交，并把提交错误存入 `submitError`；应用需要展示它。对于 Zod 等工具，可以在 validator 中调用它们，核心不绑定任何校验库。
+
+`initialValues` 只用于初始化。编辑记录加载后调用 `reset(record)` 回填并更新未修改基准。动态行以 `useFieldArray` 返回的 `id` 为 key；增删和排序使用它的方法。数字输入清空时值为 NaN，业务提交前应使用 Number.isFinite 校验；文件、多选、富文本等控件通过 `setFieldValue` 自行适配。
+
+## SSR 与 React Strict Mode
+
+核心支持 React 18、19，并提供服务端安全导入。读取浏览器对象的操作在挂载后或显式调用时执行；尺寸类初始返回 0，存储类初始返回默认值。`useMediaQuery` 可提供服务端初始值。使用 Next.js 时在客户端组件中调用这些 Hooks。
+
+订阅、定时器、请求和动画都会在卸载时清理。Strict Mode 在开发环境重复执行 effect，因此自动请求仍可能发起两次，第一轮会被取消；服务端写操作请由明确的用户事件触发。
+
+## 动画与可访问性
+
+`useAnimate` 使用 Web Animations API，并默认遵循减少动态效果的系统偏好。`useRafLoop` 是底层逐帧工具，使用它时请自行结合 `useReducedMotion`。没有浏览器 API 时提供回退 UI；不要依赖动画传递唯一的信息。
+
+组件应保留语义 HTML、可访问名称、键盘操作和焦点反馈。`useDisclosure` 只负责开关，不自动实现焦点锁定；演示使用原生 dialog。
+
+## 本地开发
+
+```bash
+npm install
+npm run dev          # 文档与演示
+npm run typecheck    # TypeScript
+npm test             # Hooks 行为与 SSR 测试
+npm run test:e2e     # Chromium 交互测试
+npm run build        # dist/ 库文件与类型声明
+npm run docs:build   # site-dist/ 静态站点
+```
+
+首次运行浏览器测试前执行 `npx playwright install chromium`。这是单个 npm 项目，源码、文档与测试按目录组织，没有 workspaces。库与文档站均使用 Vite 8+。
+
+## AI 开发说明
+
+**本项目由 AI（OpenAI Codex）在开发者指导下设计、编码、编写文档并执行验证。** 功能范围和关键决策由开发者确认。AI 生成的实现通过仓库中的类型检查、行为测试和浏览器检查进行验证，仍欢迎通过 Issue 与 Pull Request 提出问题和改进。
+
+项目参考了 ahooks 与 react-use 的能力分类及 API 设计经验，代码自主实现。使用 MIT 许可证。权限 Hooks 只控制界面，服务端应独立鉴权；不要把密码或令牌存入 URL 或演示表单。
