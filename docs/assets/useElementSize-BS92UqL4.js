@@ -1,0 +1,1 @@
+import{D as e,E as t,i as n}from"./index-CCw0F_Sn.js";var r=e(),i=t();function a(){let e=(0,r.useRef)(null),t=n(e);return(0,i.jsxs)(`div`,{ref:e,className:`resize-pad`,children:[(0,i.jsx)(`p`,{children:`拖动右下角调整容器大小`}),(0,i.jsxs)(`output`,{children:[Math.round(t.width),` × `,Math.round(t.height),` px`]})]})}export{a as default};

@@ -1,6 +1,6 @@
 # Web Hooks
 
-面向各类 Web 站点的 **40 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
+面向各类 Web 站点的 **57 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
 
 [文档与在线演示](https://leonwgc.github.io/react-hooks/) · [全部源码](https://github.com/leonwgc/react-hooks/tree/master/src) · [反馈问题](https://github.com/leonwgc/react-hooks/issues)
 
@@ -14,7 +14,7 @@
 - 请求取消、竞态隔离、轮询；搜索、分页、排序与跨页选择。
 - 原生 Web Animations API、逐帧循环和减少动态效果偏好。
 - 表单字段、嵌套路径、同步/异步/跨字段校验、动态字段数组。
-- 中文文档、40 个可交互示例、示例源码与完整列表编辑场景。
+- 中文文档、57 个可交互示例、示例源码与完整列表编辑场景。
 - 单个 npm 项目，直接使用目录组织；**不使用 workspaces**。库与站点都由 **Vite 8+** 构建。
 
 ## 安装
@@ -33,7 +33,7 @@ cd react-hooks
 npm install
 npm pack
 # 在消费项目中运行，替换为真实路径
-npm install /path/to/leonwgc-react-hooks-0.1.0.tgz
+npm install /path/to/leonwgc-react-hooks-0.2.0.tgz
 ```
 
 ## 使用
@@ -169,7 +169,11 @@ Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` �
 
 ## 第二阶段
 
-已选定无限滚动、虚拟列表、上传、撤销重做、离开提醒、SSE、拖放、全屏、跨标签页通信和下载，以及异步队列、图片加载、区域焦点、长按、文本选区和 DOM 观察，共 16 组能力、17 个 Hooks，**计划在第一阶段交付后实现**。建议顺序与边界见 [ROADMAP.md](./ROADMAP.md)。
+已选定无限滚动、虚拟列表、上传、撤销重做、离开提醒、SSE、拖放、全屏、跨标签页通信和下载，以及异步队列、图片加载、区域焦点、长按、文本选区和 DOM 观察，共 16 组能力、17 个 Hooks，**已在 v0.2.0 实现**。API 与交互演示见文档站，阶段范围见 [ROADMAP.md](./ROADMAP.md)。
+
+第二阶段新增：`useInfiniteScroll`、`useVirtualList`、`useUpload`、`useUndoRedo`、`useLeaveConfirm`、`useEventSource`、`useDrag`、`useDrop`、`useFullscreen`、`useBroadcastChannel`、`useDownload`、`useAsyncQueue`、`useImage`、`useFocusWithin`、`useLongPress`、`useTextSelection`、`useMutationObserver`。
+
+上传示例不会发送文件到外部服务，SSE 示例使用本地模拟事件源。真实项目通过传输适配器接入后端；`createXHRUploadTransport` 提供浏览器 XHR/FormData 实现。
 
 ## 参考与许可证
 

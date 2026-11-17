@@ -1,6 +1,6 @@
 {
   "name": "@leonwgc/react-hooks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Typed, UI-independent React hooks for modern websites, animation, forms and applications",
   "type": "module",
   "license": "MIT",

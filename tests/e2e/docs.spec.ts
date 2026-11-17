@@ -24,10 +24,10 @@ test("home, theme and guide work", async ({ page }) => {
   ).toBeVisible();
 });
 
-test("all 40 hook routes render their own demo and source without page errors", async ({
+test("all hook routes render their own demo and source without page errors", async ({
   page,
 }) => {
-  test.setTimeout(90000);
+  test.setTimeout(150000);
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
   for (const hook of catalog) {
@@ -269,4 +269,110 @@ test("source and guide code highlight keywords without changing copy text", asyn
   expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
     await source.textContent(),
   );
+});
+
+test("phase two virtual list, history and queue interactions", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useVirtualList");
+  await page.getByRole("button", { name: "定位第 5000 项" }).click();
+  await expect(
+    page.getByRole("listitem").filter({ hasText: /^记录 5000$/ }),
+  ).toBeVisible();
+  expect(await page.getByRole("listitem").count()).toBeLessThan(20);
+  await page.goto("#/hooks/useUndoRedo");
+  await page.getByLabel("编辑文案").fill("new draft");
+  await page.getByRole("button", { name: "撤销", exact: true }).click();
+  await expect(page.getByLabel("编辑文案")).toHaveValue("开始编辑这段文案");
+  await page.getByRole("button", { name: "重做", exact: true }).click();
+  await expect(page.getByLabel("编辑文案")).toHaveValue("new draft");
+  await page.goto("#/hooks/useAsyncQueue");
+  await page.getByRole("button", { name: "暂停队列" }).click();
+  await page.getByRole("button", { name: "加入 5 个任务" }).click();
+  await expect(page.locator(".demo-content output")).toContainText(
+    "运行 0 / 等待 5",
+  );
+  await page.getByRole("button", { name: "全部取消" }).click();
+  await expect(
+    page.locator(".demo-content li").filter({ hasText: "cancelled" }),
+  ).toHaveCount(5);
+});
+
+test("upload failure retries using the original file", async ({ page }) => {
+  await page.goto("#/hooks/useUpload");
+  await page.getByLabel("模拟上传失败").check();
+  await page.getByLabel("选择文件").setInputFiles({
+    name: "draft.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("draft"),
+  });
+  await expect(page.locator(".demo-content li")).toContainText("error");
+  await page.getByLabel("模拟上传失败").uncheck();
+  await page.getByRole("button", { name: "重试上传" }).click();
+  await expect(page.locator(".demo-content li").last()).toContainText(
+    "success",
+  );
+  await expect(page.getByRole("progressbar").last()).toHaveAttribute(
+    "value",
+    "100",
+  );
+});
+
+test("broadcast, external DOM observation and local file download work", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useBroadcastChannel");
+  await page.getByLabel("消息", { exact: true }).fill("hello from browser");
+  await page.getByRole("button", { name: "广播消息" }).click();
+  await expect(page.locator(".demo-content output")).toContainText(
+    "hello from browser",
+  );
+  await page.goto("#/hooks/useMutationObserver");
+  await page.getByRole("button", { name: "模拟第三方插入 DOM" }).click();
+  await expect(page.locator(".demo-content output")).toHaveText(
+    "观察到 1 条变更",
+  );
+  await page.goto("#/hooks/useDownload");
+  const downloaded = page.waitForEvent("download");
+  await page.getByRole("button", { name: "下载示例文本" }).click();
+  expect((await downloaded).suggestedFilename()).toBe("web-hooks-demo.txt");
+});
+
+test("leave guard respects confirmation and long press cancels short presses", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useLeaveConfirm");
+  await page.getByLabel("草稿", { exact: true }).fill("unsaved");
+  page.once("dialog", (dialog) => dialog.dismiss());
+  await page.getByRole("button", { name: "模拟离开编辑页" }).click();
+  await expect(page.locator(".demo-content output")).toHaveText("有未保存修改");
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.getByRole("button", { name: "模拟离开编辑页" }).click();
+  await expect(page.locator(".demo-content output")).toHaveText("已确认离开");
+  await page.getByRole("button", { name: "保存草稿" }).click();
+  await page.goto("#/hooks/useLongPress");
+  await page.getByRole("button", { name: /长按 600ms/ }).click();
+  await expect(page.locator(".demo-content output")).toHaveText("已触发 0 次");
+  await page.getByRole("button", { name: /长按 600ms/ }).click({ delay: 700 });
+  await expect(page.locator(".demo-content output")).toHaveText("已触发 1 次");
+});
+
+test("infinite virtual feed resets query and restores form snapshots", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useInfiniteScroll");
+  await expect(page.locator(".demo-content output")).toContainText(
+    /已加载 (5|10) 项/,
+  );
+  await page.getByLabel("内容分类").selectOption("教程");
+  await expect(page.getByRole("listitem").first()).toContainText("教程 1");
+  await expect(
+    page.getByRole("listitem").filter({ hasText: "文章" }),
+  ).toHaveCount(0);
+  await page.goto("#/hooks/useUndoRedo");
+  await page.getByLabel("表单标题").fill("第二个快照");
+  await page.getByRole("button", { name: "保存表单快照" }).click();
+  await page.getByRole("button", { name: "选择上一快照" }).click();
+  await page.getByRole("button", { name: "恢复所选快照" }).click();
+  await expect(page.getByLabel("表单标题")).toHaveValue("初始标题");
 });

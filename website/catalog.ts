@@ -1,5 +1,236 @@
 export const catalog = [
   {
+    name: "useInfiniteScroll",
+    category: "数据与列表",
+    description: "逐页追加内容，并隔离查询变化后的旧响应。",
+    signature: "useInfiniteScroll<T, Cursor>(service, options)",
+    parameters: [
+      [
+        "service",
+        "({ signal, cursor }) => Promise<{ items, nextCursor }>，nextCursor 为 null 表示结束",
+      ],
+      [
+        "options",
+        "initialCursor 必填；manual、resetKey、getKey、sentinel 可选",
+      ],
+    ],
+    returns: "items, loading, error, hasMore, loadMore, retry, reset, cancel",
+    note: "重复加载共用 Promise；getKey 去重保留首次出现记录。resetKey 深比较后清空并取消旧请求；manual 默认为 false。游标由服务适配，页码可直接使用 number。自动触底在错误后暂停，显式 retry 恢复；service 需响应 signal。",
+  },
+  {
+    name: "useVirtualList",
+    category: "数据与列表",
+    description: "仅渲染可视区附近的固定高度记录。",
+    signature: "useVirtualList<T>(items, options)",
+    parameters: [
+      ["items", "只读列表；每条记录必须提供稳定 key"],
+      ["options", "itemHeight、height、getKey 必填；overscan 默认 3"],
+    ],
+    returns:
+      "containerRef, containerStyle, onScroll, totalHeight, virtualItems, scrollTo",
+    note: "将 ref、onScroll、containerStyle 绑定滚动容器，内部相对定位容器高度设为 totalHeight。行使用返回 style。第二阶段仅支持固定行高，不测量动态内容；列表角色、键盘操作由使用方提供。",
+  },
+  {
+    name: "useUndoRedo",
+    category: "状态管理",
+    description: "为编辑操作保留有限的撤销与重做历史。",
+    signature: "useUndoRedo<T>(initial, { limit? })",
+    parameters: [
+      ["initial", "初始不可变快照"],
+      ["limit", "历史上限默认 100，至少 1"],
+    ],
+    returns: "value, set, undo, redo, reset, clear, canUndo, canRedo",
+    note: "set 接受值或函数；set(value, { replace: true }) 合并当前编辑而不新增历史。撤销后写入会清空重做分支。保存引用，不深拷贝数据；不要原地修改快照。",
+  },
+  {
+    name: "useLeaveConfirm",
+    category: "应用交互",
+    description: "保护尚未保存的编辑内容。",
+    signature: "useLeaveConfirm(dirty, options?)",
+    parameters: [
+      ["dirty", "是否存在未保存修改"],
+      ["options", "confirm 自定义同步/异步确认；message 用于 window.confirm"],
+    ],
+    returns: "confirmLeave, guard",
+    note: "只有 dirty 时监听 beforeunload，浏览器决定是否提示且不允许自定义文案。SPA 路由必须通过 guard(navigate) 或 confirmLeave 显式接入；不劫持 history，也不声称能阻止任意后退跳转。自定义确认拒绝会向调用方抛出。",
+  },
+  {
+    name: "useAsyncQueue",
+    category: "副作用与性能",
+    description: "限制异步任务并发，支持暂停和取消。",
+    signature: "useAsyncQueue<T>({ concurrency? })",
+    parameters: [
+      ["concurrency", "并发上限，默认 3，最少 1"],
+      ["add", "add(signal => Promise<T>, label?) 返回 { id, promise }"],
+    ],
+    returns:
+      "tasks, running, pending, paused, add, cancel, cancelAll, pause, resume, clear",
+    note: "暂停只阻止等待任务启动，正在运行的任务继续。取消立即拒绝任务 Promise，但忽略 signal 的传输实际结束前仍占并发槽。clear 清除已结束任务。状态调用者可忽略 Promise；await 调用者需处理拒绝。卸载取消所有任务。",
+  },
+  {
+    name: "useUpload",
+    category: "数据与列表",
+    description: "用统一队列管理文件进度、取消和重试。",
+    signature: "useUpload<T>({ transport, concurrency? })",
+    parameters: [
+      [
+        "transport",
+        "({ file, signal, onProgress }) => Promise<T>；onProgress(loaded, total)",
+      ],
+      ["concurrency", "并发上限，默认 3"],
+    ],
+    returns:
+      "uploads, add, retry, cancel, cancelAll, pause, resume, paused, running, clear",
+    note: "add 接受 File 可迭代集合，每次添加都是独立任务。失败/取消后 retry 创建新任务并保留旧记录。提供 createXHRUploadTransport({ url, fieldName?, headers?, withCredentials?, method? })：使用 FormData，返回原始响应文本；不要自行设置 multipart Content-Type。进度监听可能触发 CORS 预检；不提供断点续传。演示使用本地模拟传输。",
+  },
+  {
+    name: "useDrag",
+    category: "交互与存储",
+    description: "为原生拖放源绑定文本数据。",
+    signature: "useDrag(data, options?)",
+    parameters: [
+      ["data", "序列化后的字符串；业务对象自行 JSON.stringify"],
+      [
+        "options",
+        "type 默认 text/plain；effectAllowed 默认 copyMove；disabled 默认 false",
+      ],
+    ],
+    returns: "dragging, bind",
+    note: "将 bind 展开到源元素。默认原生 HTML Drag and Drop，移动端支持取决于浏览器；不提供排序或键盘拖放，应提供等价按钮操作。",
+  },
+  {
+    name: "useDrop",
+    category: "交互与存储",
+    description: "接收文件或指定 MIME 类型的文本。",
+    signature: "useDrop(onDrop, options?)",
+    parameters: [
+      ["onDrop", "({ text, files }, event) => void"],
+      [
+        "options",
+        "type 默认 text/plain；dropEffect 默认 copy；disabled 默认 false",
+      ],
+    ],
+    returns: "over, bind",
+    note: "将 bind 展开到目标。嵌套 enter/leave 使用深度计数；只为匹配类型/文件阻止默认行为。文件仅供调用方读取，不自动上传。拖入数据不可信，业务层需要解析与校验。",
+  },
+  {
+    name: "useFullscreen",
+    category: "浏览器与视口",
+    description: "让阅读区或图表进入浏览器全屏。",
+    signature: "useFullscreen(target)",
+    parameters: [
+      ["target", "元素、ref 或返回元素的函数"],
+      ["调用", "enter / exit / toggle 返回 Promise<boolean>"],
+    ],
+    returns: "supported, active, error, enter, exit, toggle",
+    note: "必须通过用户手势调用；拒绝记录在 error 并返回 false。监听 fullscreenchange，包括 Esc 和外部退出。SSR supported 为 false；不添加浏览器私有前缀，不主动退出其他元素的全屏。",
+  },
+  {
+    name: "useBroadcastChannel",
+    category: "交互与存储",
+    description: "在同源标签页或连接间传递消息。",
+    signature: "useBroadcastChannel<T>(name, parse)",
+    parameters: [
+      ["name", "频道名；null 时不连接"],
+      ["parse", "(raw: unknown) => T，必须解析/校验传入消息"],
+    ],
+    returns: "supported, message, error, postMessage",
+    note: "浏览器不向发送实例自身回发消息。频道变化清空旧消息并关闭旧连接，卸载释放。postMessage 返回是否成功；反序列化或解析错误写入 error。不支持时可由 supported 判断，不模拟跨标签页通信。",
+  },
+  {
+    name: "useEventSource",
+    category: "浏览器与视口",
+    description: "管理 SSE 连接与具名消息。",
+    signature: "useEventSource<T>(url, options)",
+    parameters: [
+      ["url", "SSE 地址；null 时断开"],
+      [
+        "options",
+        "parse(data: string) 必填；event 默认 message；withCredentials、factory 可选",
+      ],
+    ],
+    returns: "supported, data, status, error, close, reconnect",
+    note: "原生 EventSource 自带重连；断线时状态通常回到 connecting，close 才主动停止。URL/事件/凭据变化重建连接。factory 用于自定义传输，需实现 EventTarget、readyState 和 close；原生接口不支持任意请求头。静态站点示例明确使用模拟事件源。",
+  },
+  {
+    name: "useDownload",
+    category: "浏览器与视口",
+    description: "下载请求结果或本地生成的 Blob。",
+    signature: "useDownload()",
+    parameters: [
+      [
+        "download",
+        "download(urlOrBlob, filename, requestInit?) => Promise<Blob>",
+      ],
+      ["cancel", "取消当前请求并阻止保存过期结果"],
+    ],
+    returns: "download, loading, error, cancel",
+    note: "URL 通过 fetch 获取，需满足 CORS；非 2xx 作为错误。调用方处理 Promise 拒绝。仅最新调用触发保存，Blob URL 延时释放并在卸载清理。浏览器可能限制自动下载；应在用户动作中触发，不保证磁盘写入完成。",
+  },
+  {
+    name: "useImage",
+    category: "浏览器与视口",
+    description: "预加载图片并在失败后尝试备用资源。",
+    signature: "useImage(src, options?)",
+    parameters: [
+      ["src", "图片地址；null 返回 idle"],
+      ["options", "fallback 备用图片；crossOrigin 可选"],
+    ],
+    returns: "src, status, error, width, height",
+    note: "挂载后才创建 Image，避免 SSR 访问浏览器。备用资源只尝试一次；参数变化清理旧回调，不让旧结果覆盖新图。不向浏览器承诺已取消底层图片下载。",
+  },
+  {
+    name: "useFocusWithin",
+    category: "交互与存储",
+    description: "跟踪复合控件整体的焦点。",
+    signature: "useFocusWithin()",
+    parameters: [
+      ["bind", "展开到包含多个输入或按钮的容器"],
+      ["focused", "焦点是否在容器或后代内"],
+    ],
+    returns: "focused, bind",
+    note: "内部控件之间切换不变为 false；焦点离开容器时变为 false。使用 React 焦点冒泡事件，不限制焦点，不替代 focus trap。",
+  },
+  {
+    name: "useLongPress",
+    category: "交互与存储",
+    description: "识别长按并在移动或取消时停止等待。",
+    signature: "useLongPress(callback, options?)",
+    parameters: [
+      ["callback", "收到触发起始 PointerEvent；不要依赖异步后的 currentTarget"],
+      ["options", "delay 默认 500ms；threshold 默认 10px；disabled 默认 false"],
+    ],
+    returns: "pressing, cancel, bind",
+    note: "bind 展开到可交互元素，使用 Pointer Events 与指针捕获。主按钮按下，超时触发一次；移动超阈值、松开、取消、失焦或卸载均清理。触屏场景按需设置 touch-action，并提供键盘等价操作。",
+  },
+  {
+    name: "useTextSelection",
+    category: "浏览器与视口",
+    description: "读取文本选区和视口坐标。",
+    signature: "useTextSelection(target?)",
+    parameters: [
+      ["target", "可选元素/ref；省略时观察整个文档"],
+      ["rect", "选区边界 { x, y, width, height }，无选区时 null"],
+    ],
+    returns: "text, rect, clear",
+    note: "监听 selectionchange、滚动与 resize。限定 target 时锚点和焦点都必须在目标内部。坐标相对视口；输入框内部 selectionStart 不属于此 Hook 的能力。",
+  },
+  {
+    name: "useMutationObserver",
+    category: "浏览器与视口",
+    description: "观察第三方维护的 DOM 变化。",
+    signature: "useMutationObserver(target, callback, options?)",
+    parameters: [
+      ["target / callback", "Node/ref 与 MutationCallback"],
+      [
+        "options",
+        "原生 MutationObserverInit，默认 childList: true, subtree: true",
+      ],
+    ],
+    returns: "supported, error, disconnect, takeRecords",
+    note: "参数变化重建观察器，回调始终使用最新函数；卸载 disconnect。配置非法记录 error。disconnect 手动停止后，目标或配置变化才重建。用于外部 DOM，不使用 DOM 观察替代 React 状态。",
+  },
+  {
     name: "useBoolean",
     category: "状态管理",
     description: "把开关状态写得更清楚。",

@@ -110,7 +110,7 @@ function Home() {
       <section className="hero container">
         <div className="hero-copy">
           <a className="eyebrow pill" href="#/guide">
-            <span className="live-dot" /> v0.1.0 · 为 React 18 / 19 而生{" "}
+            <span className="live-dot" /> v0.2.0 · 为 React 18 / 19 而生{" "}
             <span>→</span>
           </a>
           <h1>
@@ -121,7 +121,7 @@ function Home() {
           <p className="hero-description">
             从一个开关，到完整的交互。
             <br />
-            40 个轻量、类型安全的 React Hooks，
+            57 个轻量、类型安全的 React Hooks，
             <br className="desktop-break" />
             为每一种 Web 体验提供可靠的起点。
           </p>
@@ -179,7 +179,7 @@ function Home() {
       <div className="stats-strip">
         <div className="container stats-grid">
           <div>
-            <strong>40</strong>
+            <strong>57</strong>
             <span>精心组织的 Hooks</span>
           </div>
           <div>
@@ -484,7 +484,7 @@ function App() {
       <header className="site-header">
         <div className="header-inner">
           <Logo />
-          <span className="version">v0.1.0</span>
+          <span className="version">v0.2.0</span>
           <nav className="top-nav" aria-label="主导航">
             <a className={isHome ? "active" : ""} href="#/">
               概览
@@ -558,7 +558,7 @@ function App() {
                     ×
                   </button>
                 ) : (
-                  <kbd>40</kbd>
+                  <kbd>57</kbd>
                 )}
               </label>
               <a
@@ -596,7 +596,7 @@ function App() {
               })}
               {!filtered.length && <p className="empty">没有匹配的 Hooks</p>}
               <div className="sidebar-footer">
-                40 HOOKS · ENDLESS POSSIBILITIES
+                57 HOOKS · ENDLESS POSSIBILITIES
               </div>
             </aside>
             <div className="doc-layout-content">

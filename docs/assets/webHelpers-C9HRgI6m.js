@@ -1,0 +1,1 @@
+function e(e,t){return new Promise((n,r)=>{if(e.aborted){r(new DOMException(`Cancelled`,`AbortError`));return}let i=setTimeout(()=>{e.removeEventListener(`abort`,a),n()},t),a=()=>{clearTimeout(i),e.removeEventListener(`abort`,a),r(new DOMException(`Cancelled`,`AbortError`))};e.addEventListener(`abort`,a,{once:!0})})}export{e as t};
