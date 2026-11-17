@@ -5,7 +5,7 @@ import * as hooks from "../src";
 it("exports all public hooks and server-renders every browser-dependent hook safely", () => {
   expect(
     Object.keys(hooks).filter((name) => name.startsWith("use")),
-  ).toHaveLength(57);
+  ).toHaveLength(59);
   function ServerExample() {
     hooks.useEventListener("click", () => {});
     hooks.useWindowSize();
@@ -52,6 +52,8 @@ it("exports all public hooks and server-renders every browser-dependent hook saf
     hooks.useSessionStorageState("ssr", "session");
     const form = hooks.useForm({ initialValues: { rows: ["x"] } });
     hooks.useFieldArray(form, "rows");
+    hooks.useFormField(form.control, "rows");
+    hooks.useSortable(["x"], { getKey: (value) => value, onChange: () => {} });
     return <span>{storage.value}</span>;
   }
   expect(renderToString(<ServerExample />)).toBe("<span>server</span>");

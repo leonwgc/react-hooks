@@ -1,6 +1,6 @@
 # Web Hooks
 
-面向各类 Web 站点的 **57 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
+面向各类 Web 站点的 **59 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
 
 [文档与在线演示](https://leonwgc.github.io/react-hooks/) · [全部源码](https://github.com/leonwgc/react-hooks/tree/master/src) · [反馈问题](https://github.com/leonwgc/react-hooks/issues)
 
@@ -14,7 +14,7 @@
 - 请求取消、竞态隔离、轮询；搜索、分页、排序与跨页选择。
 - 原生 Web Animations API、逐帧循环和减少动态效果偏好。
 - 表单字段、嵌套路径、同步/异步/跨字段校验、动态字段数组。
-- 中文文档、57 个可交互示例、示例源码与完整列表编辑场景。
+- 中文文档、59 个可交互示例、示例源码与完整列表编辑场景。
 - 单个 npm 项目，直接使用目录组织；**不使用 workspaces**。库与站点都由 **Vite 8+** 构建。
 
 ## 安装
@@ -33,7 +33,7 @@ cd react-hooks
 npm install
 npm pack
 # 在消费项目中运行，替换为真实路径
-npm install /path/to/leonwgc-react-hooks-0.2.0.tgz
+npm install /path/to/leonwgc-react-hooks-0.3.0.tgz
 ```
 
 ## 使用
@@ -174,6 +174,17 @@ Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` �
 第二阶段新增：`useInfiniteScroll`、`useVirtualList`、`useUpload`、`useUndoRedo`、`useLeaveConfirm`、`useEventSource`、`useDrag`、`useDrop`、`useFullscreen`、`useBroadcastChannel`、`useDownload`、`useAsyncQueue`、`useImage`、`useFocusWithin`、`useLongPress`、`useTextSelection`、`useMutationObserver`。
 
 上传示例不会发送文件到外部服务，SSE 示例使用本地模拟事件源。真实项目通过传输适配器接入后端；`createXHRUploadTransport` 提供浏览器 XHR/FormData 实现。
+
+## 第三阶段（v0.3.0）
+
+- 请求：显式重试、指数退避、单次超时、聚焦/重连刷新和隐藏页面轮询控制。
+- 表单：校验时机、异步防抖、字段依赖、schema 适配函数，以及新增 `useFormField` 字段订阅。
+- 表格：URL 查询状态恢复、列顺序/显隐持久化和命名筛选预设。
+- 虚拟列表：动态高度缓存、滚动锚点和双向加载组合。
+- 快捷键：修饰键组合、作用域、优先级及事件独占。
+- 新增 `useSortable`：原生拖放、键盘排序与可访问状态播报。
+
+详见站点各 Hook 的参数、边界说明和可交互示例。
 
 ## 参考与许可证
 

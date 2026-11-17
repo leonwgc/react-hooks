@@ -50,6 +50,22 @@ export default function Demo() {
     {
       initialFilters: { keyword: "" },
       pageSize: 5,
+      urlState: {
+        key: "articles",
+        parseFilters: (value) => {
+          if (
+            !value ||
+            typeof value !== "object" ||
+            !("keyword" in value) ||
+            typeof value.keyword !== "string"
+          )
+            throw new Error("Invalid article filters");
+          return { keyword: value.keyword };
+        },
+      },
+      columns: ["id", "title", "category"],
+      columnsStorageKey: "web-hooks-article-columns",
+      filterPresets: { React: { keyword: "React" }, 全部: { keyword: "" } },
       select: (response) => response,
     },
   );
@@ -129,6 +145,34 @@ export default function Demo() {
         </label>
         <span className="muted">已选 {selection.selectedKeys.length} 项</span>
       </div>
+      <div className="demo-row">
+        <label>
+          <input
+            type="checkbox"
+            checked={table.columns.visible.includes("category")}
+            onChange={(e) =>
+              table.columns.setVisible("category", e.target.checked)
+            }
+          />
+          显示分类列
+        </label>
+        <button
+          onClick={() =>
+            table.columns.setOrder([...table.columns.order].reverse())
+          }
+        >
+          反转列顺序
+        </button>
+        <button onClick={() => table.savePreset("我的筛选")}>
+          保存当前筛选
+        </button>
+        {Object.keys(table.presets).map((name) => (
+          <button key={name} onClick={() => table.applyPreset(name)}>
+            预设：{name}
+          </button>
+        ))}
+      </div>
+      {!!table.stateError && <p role="alert">{String(table.stateError)}</p>}
       {table.error ? (
         <div role="alert" className="notice">
           加载失败。关闭失败开关后 <button onClick={table.refresh}>重试</button>
@@ -146,9 +190,11 @@ export default function Demo() {
                   onChange={selection.toggleAll}
                 />
               </th>
-              <th>ID</th>
-              <th>文章标题</th>
-              <th>分类</th>
+              {table.columns.visible.map((key) => (
+                <th key={key}>
+                  {key === "id" ? "ID" : key === "title" ? "文章标题" : "分类"}
+                </th>
+              ))}
               <th>操作</th>
             </tr>
           </thead>
@@ -163,11 +209,17 @@ export default function Demo() {
                     onChange={() => selection.toggle(article.id)}
                   />
                 </td>
-                <td className="muted">{String(article.id).padStart(2, "0")}</td>
-                <td>{article.title}</td>
-                <td>
-                  <span className="tag">{article.category}</span>
-                </td>
+                {table.columns.visible.map((key) => (
+                  <td key={key}>
+                    {key === "id" ? (
+                      String(article.id).padStart(2, "0")
+                    ) : key === "title" ? (
+                      article.title
+                    ) : (
+                      <span className="tag">{article.category}</span>
+                    )}
+                  </td>
+                ))}
                 <td>
                   <button
                     className="text-button"

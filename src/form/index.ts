@@ -1,4 +1,12 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type ChangeEvent,
+} from "react";
 import { useLatest, useMemoizedFn } from "../state/index.js";
 import { equal } from "../internal/utils.js";
 import { getPath, setPath, type FieldPath, type FieldValue } from "./path.js";
@@ -16,6 +24,13 @@ export type FormValidators<T> = {
 export interface FormOptions<T extends object> {
   initialValues: T;
   validators?: FormValidators<NoInfer<T>>;
+  mode?: "onSubmit" | "onBlur" | "onChange";
+  revalidateMode?: "onBlur" | "onChange";
+  validateDebounce?: number;
+  dependencies?: Partial<
+    Record<FieldPath<NoInfer<T>>, readonly FieldPath<NoInfer<T>>[]>
+  >;
+  schema?: (values: T) => FormErrors<T> | Promise<FormErrors<T>>;
 }
 export function useForm<T extends object>(options: FormOptions<T>) {
   const [values, updateValues] = useState(options.initialValues);
@@ -36,67 +51,152 @@ export function useForm<T extends object>(options: FormOptions<T>) {
   const mounted = useRef(true);
   const lock = useRef<Promise<boolean> | null>(null);
   const config = useLatest(options);
+  const validationTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
+  const pendingPaths = useRef<Set<FieldPath<T>> | null>(new Set());
   useEffect(() => {
     mounted.current = true;
     return () => {
+      clearTimeout(validationTimer.current);
       mounted.current = false;
       validation.current++;
       lifecycle.current++;
     };
   }, []);
-  const validate = useMemoizedFn(async (): Promise<boolean> => {
-    const id = ++validation.current,
-      version = revision.current,
-      snapshot = current.current;
-    setValidating(true);
-    const checks = Object.entries(config.current.validators ?? {}) as [
-      FieldPath<T>,
-      (
-        value: unknown,
-        values: T,
-      ) => string | undefined | Promise<string | undefined>,
-    ][];
-    const results = await Promise.all(
-      checks.map(async ([path, validator]) => {
-        try {
-          return [
-            path,
-            await validator(getPath(snapshot, path), snapshot),
-          ] as const;
-        } catch (error) {
-          return [
-            path,
-            error instanceof Error ? error.message : "校验失败",
-          ] as const;
+  const validate = useMemoizedFn(
+    async (paths?: readonly FieldPath<T>[]): Promise<boolean> => {
+      clearTimeout(validationTimer.current);
+      const selected = paths && !config.current.schema ? new Set(paths) : null;
+      if (selected) {
+        let added = true;
+        while (added) {
+          added = false;
+          for (const [field, dependencies] of Object.entries(
+            config.current.dependencies ?? {},
+          ) as [FieldPath<T>, readonly FieldPath<T>[]][]) {
+            if (
+              !selected.has(field) &&
+              dependencies.some((dependency) =>
+                [...selected].some(
+                  (path) =>
+                    path === dependency ||
+                    path.startsWith(`${dependency}.`) ||
+                    dependency.startsWith(`${path}.`),
+                ),
+              )
+            ) {
+              selected.add(field);
+              added = true;
+            }
+          }
         }
-      }),
-    );
-    if (
-      !mounted.current ||
-      id !== validation.current ||
-      version !== revision.current
-    )
-      return false;
-    const next: FormErrors<T> = {};
-    results.forEach(([path, message]) => {
-      if (message) next[path] = message;
-    });
-    updateErrors(next);
-    setValidating(false);
-    return Object.keys(next).length === 0;
+      }
+      const id = ++validation.current,
+        version = revision.current,
+        snapshot = current.current;
+      setValidating(true);
+      const checks = Object.entries(config.current.validators ?? {}) as [
+        FieldPath<T>,
+        (
+          value: unknown,
+          values: T,
+        ) => string | undefined | Promise<string | undefined>,
+      ][];
+      const isSelected = (path: string) =>
+        !selected ||
+        [...selected].some(
+          (parent) => path === parent || path.startsWith(`${parent}.`),
+        );
+      const results = await Promise.all(
+        checks
+          .filter(([path]) => isSelected(path))
+          .map(async ([path, validator]) => {
+            try {
+              return [
+                path,
+                await validator(getPath(snapshot, path), snapshot),
+              ] as const;
+            } catch (error) {
+              return [
+                path,
+                error instanceof Error ? error.message : "校验失败",
+              ] as const;
+            }
+          }),
+      );
+      let schemaErrors: FormErrors<T> = {};
+      let schemaFailure: unknown;
+      try {
+        schemaErrors = (await config.current.schema?.(snapshot)) ?? {};
+      } catch (error) {
+        schemaFailure = error ?? new Error("Schema validation failed");
+      }
+      if (
+        !mounted.current ||
+        id !== validation.current ||
+        version !== revision.current
+      )
+        return false;
+      if (schemaFailure !== undefined) {
+        setValidating(false);
+        setSubmitError(schemaFailure);
+        return false;
+      }
+      const next: FormErrors<T> = { ...schemaErrors };
+      results.forEach(([path, message]) => {
+        if (message) next[path] = message;
+      });
+      updateErrors((previous) => {
+        if (!selected) return next;
+        const merged = { ...previous };
+        for (const path of Object.keys(merged) as FieldPath<T>[])
+          if (isSelected(path)) delete merged[path];
+        return { ...merged, ...next };
+      });
+      if (!selected) pendingPaths.current = new Set();
+      else if (pendingPaths.current)
+        for (const path of pendingPaths.current)
+          if (isSelected(path)) pendingPaths.current.delete(path);
+      setValidating(false);
+      return Object.keys(next).length === 0;
+    },
+  );
+  const scheduleValidation = useMemoizedFn((path?: FieldPath<T>) => {
+    clearTimeout(validationTimer.current);
+    if (path) pendingPaths.current?.add(path);
+    else pendingPaths.current = null;
+    const run = () => {
+      void validate(
+        pendingPaths.current && config.current.dependencies
+          ? [...pendingPaths.current]
+          : undefined,
+      );
+    };
+    if ((config.current.validateDebounce ?? 0) > 0)
+      validationTimer.current = setTimeout(
+        run,
+        config.current.validateDebounce,
+      );
+    else run();
   });
-  const changed = useMemoizedFn((next: T) => {
+  const validateOn = (event: "onBlur" | "onChange") =>
+    (submitted.current
+      ? (config.current.revalidateMode ?? "onChange")
+      : (config.current.mode ?? "onSubmit")) === event;
+  const changed = useMemoizedFn((next: T, path?: FieldPath<T>) => {
+    clearTimeout(validationTimer.current);
     current.current = next;
     revision.current++;
     validation.current++;
     updateValues(next);
     setValidating(false);
     setSubmitError(undefined);
-    if (submitted.current) void validate();
+    if (validateOn("onChange")) scheduleValidation(path);
   });
   const setFieldValue = useMemoizedFn(
     <P extends FieldPath<T>>(path: P, value: FieldValue<T, P>) =>
-      changed(setPath(current.current, path, value)),
+      changed(setPath(current.current, path, value), path),
   );
   const setValues = useMemoizedFn((next: T | ((previous: T) => T)) =>
     changed(typeof next === "function" ? next(current.current) : next),
@@ -114,6 +214,8 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       }),
   );
   const reset = useMemoizedFn((next: T = baseline.current) => {
+    clearTimeout(validationTimer.current);
+    pendingPaths.current = new Set();
     baseline.current = next;
     current.current = next;
     revision.current++;
@@ -154,9 +256,12 @@ export function useForm<T extends object>(options: FormOptions<T>) {
                 ? Number.NaN
                 : Number(input.value)
               : input.value;
-        changed(setPath(current.current, path, next));
+        changed(setPath(current.current, path, next), path);
       },
-      onBlur: () => setFieldTouched(path),
+      onBlur: () => {
+        setFieldTouched(path);
+        if (validateOn("onBlur")) scheduleValidation(path);
+      },
     };
   };
   const handleSubmit =
@@ -188,7 +293,33 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       lock.current = promise;
       return promise;
     };
+  const fieldState = useLatest({ values, errors, touched });
+  const listeners = useRef(new Set<() => void>());
+  const control = useRef<FormControl<T> | null>(null);
+  if (!control.current)
+    control.current = {
+      subscribe: (listener) => {
+        listeners.current.add(listener);
+        return () => {
+          listeners.current.delete(listener);
+        };
+      },
+      read: (path) => ({
+        value: getPath(fieldState.current.values, path),
+        error: fieldState.current.errors[path],
+        touched: !!fieldState.current.touched[path],
+      }),
+      setValue: setFieldValue,
+      blur: (path) => {
+        setFieldTouched(path);
+        if (validateOn("onBlur")) scheduleValidation(path);
+      },
+    };
+  useEffect(() => {
+    for (const listener of listeners.current) listener();
+  }, [values, errors, touched]);
   return {
+    control: control.current,
     values,
     errors,
     touched,
@@ -274,5 +405,48 @@ export function useFieldArray<T extends object, P extends FieldPath<T>>(
     remove,
     move,
     replace,
+  };
+}
+
+export interface FormControl<T extends object> {
+  subscribe: (listener: () => void) => () => void;
+  read: (path: FieldPath<T>) => {
+    value: unknown;
+    error: string | undefined;
+    touched: boolean;
+  };
+  setValue: <P extends FieldPath<T>>(path: P, value: FieldValue<T, P>) => void;
+  blur: (path: FieldPath<T>) => void;
+}
+export function useFormField<T extends object, P extends FieldPath<T>>(
+  control: FormControl<T>,
+  path: P,
+) {
+  const cache = useRef<ReturnType<FormControl<T>["read"]> | undefined>(
+    undefined,
+  );
+  const getSnapshot = useCallback(() => {
+    const next = control.read(path);
+    if (
+      !cache.current ||
+      !Object.is(cache.current.value, next.value) ||
+      cache.current.error !== next.error ||
+      cache.current.touched !== next.touched
+    )
+      cache.current = next;
+    return cache.current;
+  }, [control, path]);
+  const field = useSyncExternalStore(
+    control.subscribe,
+    getSnapshot,
+    getSnapshot,
+  );
+  return {
+    ...field,
+    value: field.value as FieldValue<T, P>,
+    setValue: useMemoizedFn((value: FieldValue<T, P>) =>
+      control.setValue(path, value),
+    ),
+    onBlur: useMemoizedFn(() => control.blur(path)),
   };
 }

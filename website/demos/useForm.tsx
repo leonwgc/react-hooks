@@ -2,8 +2,18 @@ import { useState } from "react";
 import { useForm } from "../../src";
 export default function Demo() {
   const [message, setMessage] = useState("");
+  const [mode, setMode] = useState<"onSubmit" | "onBlur" | "onChange">(
+    "onSubmit",
+  );
   const form = useForm({
     initialValues: { username: "", password: "", confirm: "" },
+    mode,
+    validateDebounce: 250,
+    dependencies: { confirm: ["password"] },
+    schema: (values) =>
+      values.username.toLowerCase() === "root"
+        ? { username: "Schema 校验：不能使用 root" }
+        : {},
     validators: {
       username: async (value) => {
         if (value.trim().length < 3) return "用户名至少需要 3 个字符";
@@ -25,6 +35,25 @@ export default function Demo() {
         setMessage(`${values.username}，演示注册成功！未发送或保存你的密码。`);
       })}
     >
+      <label>
+        校验时机
+        <select
+          value={mode}
+          onChange={(e) =>
+            setMode(
+              e.target.value === "onChange"
+                ? "onChange"
+                : e.target.value === "onBlur"
+                  ? "onBlur"
+                  : "onSubmit",
+            )
+          }
+        >
+          <option value="onSubmit">提交时</option>
+          <option value="onBlur">失焦时</option>
+          <option value="onChange">输入时（250ms 防抖）</option>
+        </select>
+      </label>
       <label>
         用户名
         <input

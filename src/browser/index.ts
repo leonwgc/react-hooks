@@ -147,35 +147,157 @@ export function useClickOutside(
     () => document,
   );
 }
+export interface KeyPressOptions {
+  enabled?: boolean;
+  allowInInput?: boolean;
+  target?: Target<EventTarget>;
+  scope?: Target<HTMLElement>;
+  priority?: number;
+  preventDefault?: boolean;
+  stopPropagation?: boolean;
+  repeat?: boolean;
+  platform?: "mac" | "windows";
+}
+interface KeyBinding {
+  keys: string | readonly string[];
+  callback: (event: KeyboardEvent) => void;
+  options: KeyPressOptions;
+}
+const keyTargets = new WeakMap<
+  EventTarget,
+  { bindings: Set<KeyBinding>; listener: EventListener }
+>();
+function matchesKey(
+  chord: string,
+  event: KeyboardEvent,
+  platform?: KeyPressOptions["platform"],
+) {
+  if (chord === "+") return event.key === "+";
+  const parts = chord.toLowerCase().split("+");
+  const key = parts.pop()!;
+  const expectedKey =
+    key === "space"
+      ? " "
+      : key === "esc"
+        ? "escape"
+        : key === "plus"
+          ? "+"
+          : key;
+  if (event.key.toLowerCase() !== expectedKey) return false;
+  if (!parts.length) return true; // Preserve plain-key matching from earlier releases.
+  const mac = platform
+    ? platform === "mac"
+    : /Mac|iPhone|iPad/.test(navigator.platform);
+  const modifiers = new Set(
+    parts.map((part) =>
+      part === "mod"
+        ? mac
+          ? "meta"
+          : "ctrl"
+        : part === "cmd"
+          ? "meta"
+          : part === "control"
+            ? "ctrl"
+            : part === "option"
+              ? "alt"
+              : part,
+    ),
+  );
+  if (
+    [...modifiers].some(
+      (part) => !["ctrl", "meta", "shift", "alt"].includes(part),
+    )
+  )
+    return false;
+  return (
+    event.ctrlKey === modifiers.has("ctrl") &&
+    event.metaKey === modifiers.has("meta") &&
+    event.shiftKey === modifiers.has("shift") &&
+    event.altKey === modifiers.has("alt")
+  );
+}
 export function useKeyPress(
   keys: string | readonly string[],
   callback: (event: KeyboardEvent) => void,
-  options: {
-    enabled?: boolean;
-    allowInInput?: boolean;
-    target?: Target<EventTarget>;
-  } = {},
+  options: KeyPressOptions = {},
 ) {
-  useEventListener<KeyboardEvent>(
-    "keydown",
-    (event) => {
-      const node = event.target;
-      const editable =
-        node instanceof HTMLElement &&
-        (node.isContentEditable ||
-          ["INPUT", "TEXTAREA", "SELECT"].includes(node.tagName));
-      if (
-        options.enabled === false ||
-        (editable && !options.allowInInput) ||
-        event.isComposing
-      )
-        return;
-      if ((typeof keys === "string" ? [keys] : keys).includes(event.key))
-        callback(event);
-    },
-    options.target,
-  );
+  const call = useMemoizedFn(callback);
+  const latest = useLatest({ keys, options });
+  useEffect(() => {
+    const target =
+      options.target === undefined ? window : resolveTarget(options.target);
+    if (!target) return;
+    let registry = keyTargets.get(target);
+    if (!registry) {
+      const bindings = new Set<KeyBinding>();
+      const listener: EventListener = (raw) => {
+        const event = raw as KeyboardEvent;
+        if (event.isComposing || event.defaultPrevented) return;
+        const ordered = [...bindings]
+          .reverse()
+          .sort(
+            (a, b) => (b.options.priority ?? 0) - (a.options.priority ?? 0),
+          );
+        for (const binding of ordered) {
+          const config = binding.options;
+          const node = event.target;
+          const editable =
+            node instanceof HTMLElement &&
+            (node.isContentEditable ||
+              ["INPUT", "TEXTAREA", "SELECT"].includes(node.tagName));
+          if (
+            config.enabled === false ||
+            (event.repeat && config.repeat === false) ||
+            (editable && !config.allowInInput)
+          )
+            continue;
+          if (config.scope !== undefined) {
+            const scope = resolveTarget(config.scope);
+            if (!scope || !(node instanceof Node) || !scope.contains(node))
+              continue;
+          }
+          const candidates =
+            typeof binding.keys === "string" ? [binding.keys] : binding.keys;
+          if (
+            !candidates.some((key) => matchesKey(key, event, config.platform))
+          )
+            continue;
+          if (config.preventDefault) event.preventDefault();
+          if (config.stopPropagation) event.stopPropagation();
+          binding.callback(event);
+          // A matching exclusive binding wins; observers can deliberately omit these options.
+          if (
+            config.preventDefault ||
+            config.stopPropagation ||
+            event.defaultPrevented
+          )
+            break;
+        }
+      };
+      registry = { bindings, listener };
+      keyTargets.set(target, registry);
+      target.addEventListener("keydown", listener);
+    }
+    const binding: KeyBinding = {
+      get keys() {
+        return latest.current.keys;
+      },
+      get options() {
+        return latest.current.options;
+      },
+      callback: call,
+    };
+    registry.bindings.add(binding);
+    return () => {
+      registry.bindings.delete(binding);
+      if (!registry.bindings.size) {
+        target.removeEventListener("keydown", registry.listener);
+        keyTargets.delete(target);
+      }
+    };
+  });
 }
+
 export function useClipboard() {
   const [state, setState] = useState<{ copied: boolean; error: unknown }>({
     copied: false,

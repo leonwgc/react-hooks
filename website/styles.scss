@@ -1616,3 +1616,24 @@ dialog h3 {
   --syntax-tag: #f6a5b8;
   --syntax-punctuation: #b5c2d8;
 }
+
+.sortable-demo {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    margin-block: 6px;
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    background: var(--surface);
+    cursor: grab;
+  }
+  li[data-sorting] {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+}

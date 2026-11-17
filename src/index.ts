@@ -9,3 +9,4 @@ export * from "./web/interaction.js";
 export * from "./web/browser.js";
 export * from "./web/queue.js";
 export * from "./web/list.js";
+export * from "./web/sortable.js";

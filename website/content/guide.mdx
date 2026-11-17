@@ -1,6 +1,6 @@
 # 从一个 Hook 开始
 
-Web Hooks 是面向各类 Web 站点的 React Hooks 库。它提供 57 个与 UI 无关的 Hooks，覆盖状态、浏览器交互、异步数据、列表、动画与表单。
+Web Hooks 是面向各类 Web 站点的 React Hooks 库。它提供 59 个与 UI 无关的 Hooks，覆盖状态、浏览器交互、异步数据、列表、动画与表单。
 
 ## 安装与使用
 
@@ -91,3 +91,26 @@ npm run docs:build   # site-dist/ 静态站点
 **本项目由 AI（OpenAI Codex）在开发者指导下设计、编码、编写文档并执行验证。** 功能范围和关键决策由开发者确认。AI 生成的实现通过仓库中的类型检查、行为测试和浏览器检查进行验证，仍欢迎通过 Issue 与 Pull Request 提出问题和改进。
 
 项目参考了 ahooks 与 react-use 的能力分类及 API 设计经验，代码自主实现。使用 MIT 许可证。权限 Hooks 只控制界面，服务端应独立鉴权；不要把密码或令牌存入 URL 或演示表单。
+
+## 按需要启用高级能力
+
+请求默认不重试。显式传入 `retry: 2` 可启用重试，默认使用指数退避；`timeout` 限制单次尝试的等待时间。调用 `cancel()` 会停止请求、重试等待和自动刷新。对于写请求，先由业务确认重试是否安全。
+
+```tsx
+const request = useRequest(service, {
+  retry: 2,
+  timeout: 5000,
+  refreshOnFocus: true,
+  refreshOnReconnect: true,
+  pollingInterval: 30000,
+  pollingWhenHidden: false,
+});
+```
+
+表单的 `mode` 控制首次校验时机，`validateDebounce` 延迟自动校验；提交始终立即验证。`schema(values)` 可以把任意校验库结果映射为字段错误，不需要核心库依赖特定校验包。
+
+大量字段可把稳定的 `form.control` 传给 `React.memo` 字段组件，并用 `useFormField` 订阅当前字段；表单宿主仍正常响应状态变化。
+
+动态高度列表设置 `dynamic: true`，绑定每行的 `measureRef`。为项目提供稳定 key，才能在顶部插入记录时保留阅读位置。`onStartReached` / `onEndReached` 可分别调用前后分页实例；重复加载由 `useInfiniteScroll` 合并。
+
+表格可通过 `urlState` 恢复分页和筛选，调用方提供 `parseFilters` 校验 URL 数据；`columnsStorageKey` 保存列配置。筛选预设在当前实例内保存，不自动写入本地存储。

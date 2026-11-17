@@ -53,8 +53,11 @@ test("all hook routes render their own demo and source without page errors", asy
 test("hook search filters navigation", async ({ page }) => {
   await page.goto("#/hooks/useBoolean");
   await page.getByRole("textbox", { name: "搜索 Hooks" }).fill("useForm");
-  await expect(page.locator(".nav-group a")).toHaveCount(1);
-  await page.locator(".nav-group a").click();
+  await expect(page.locator(".nav-group a")).toHaveCount(2);
+  await page
+    .locator(".nav-group")
+    .getByRole("link", { name: "useForm", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "useForm", exact: true }),
   ).toBeVisible();
@@ -202,7 +205,10 @@ test("mobile pages fit viewport and navigation remains accessible", async ({
   await page.goto("#/hooks/useTable");
   await page.getByRole("button", { name: "目录", exact: true }).click();
   await page.getByRole("textbox", { name: "搜索 Hooks" }).fill("useForm");
-  await page.locator(".nav-group a").click();
+  await page
+    .locator(".nav-group")
+    .getByRole("link", { name: "useForm", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "useForm", exact: true }),
   ).toBeVisible();
@@ -277,9 +283,17 @@ test("phase two virtual list, history and queue interactions", async ({
   await page.goto("#/hooks/useVirtualList");
   await page.getByRole("button", { name: "定位第 5000 项" }).click();
   await expect(
-    page.getByRole("listitem").filter({ hasText: /^记录 5000$/ }),
+    page
+      .getByRole("list", { name: "虚拟记录列表" })
+      .getByRole("listitem")
+      .filter({ hasText: /^记录 5000$/ }),
   ).toBeVisible();
-  expect(await page.getByRole("listitem").count()).toBeLessThan(20);
+  expect(
+    await page
+      .getByRole("list", { name: "虚拟记录列表" })
+      .getByRole("listitem")
+      .count(),
+  ).toBeLessThan(20);
   await page.goto("#/hooks/useUndoRedo");
   await page.getByLabel("编辑文案").fill("new draft");
   await page.getByRole("button", { name: "撤销", exact: true }).click();
@@ -375,4 +389,103 @@ test("infinite virtual feed resets query and restores form snapshots", async ({
   await page.getByRole("button", { name: "选择上一快照" }).click();
   await page.getByRole("button", { name: "恢复所选快照" }).click();
   await expect(page.getByLabel("表单标题")).toHaveValue("初始标题");
+});
+
+test("advanced request retries and field subscriptions are interactive", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useRequest");
+  await page.getByRole("button", { name: "运行高级请求" }).click();
+  await expect(page.locator(".demo-content output")).toContainText(
+    "第 3 次尝试成功",
+  );
+  await expect(page.locator(".demo-content output")).toContainText(
+    "重试次数：2",
+  );
+  await page.goto("#/hooks/useFormField");
+  const before = await page
+    .getByLabel("订阅备注", { exact: false })
+    .locator("..")
+    .textContent();
+  await page.getByLabel("订阅名称", { exact: false }).fill("新的名称");
+  await expect(
+    page.getByLabel("订阅备注", { exact: false }).locator(".."),
+  ).toHaveText(before!);
+});
+
+test("table restores URL and column preferences after reload", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useTable");
+  await page.getByRole("button", { name: "预设：React", exact: true }).click();
+  await expect(page.getByLabel("文章搜索")).toHaveValue("React");
+  await page.getByLabel("显示分类列").uncheck();
+  await expect(
+    page
+      .locator(".demo-content")
+      .getByRole("columnheader", { name: "分类", exact: true }),
+  ).toHaveCount(0);
+  await expect
+    .poll(() =>
+      page.evaluate(
+        () =>
+          JSON.parse(
+            new URLSearchParams(location.search).get("articles") ?? "{}",
+          ).filters?.keyword,
+      ),
+    )
+    .toBe("React");
+  await page.reload();
+  await expect(page.getByLabel("文章搜索")).toHaveValue("React");
+  await expect(page.getByLabel("显示分类列")).not.toBeChecked();
+});
+
+test("sortable supports keyboard commit, cancel and native drag", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useSortable");
+  const items = page.locator(".sortable-demo li");
+  const first = page.getByRole("listitem", { name: "需求分析", exact: true });
+  await first.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  await expect(items.nth(1)).toContainText("需求分析");
+  await first.focus();
+  await page.keyboard.press("Space");
+  await page.keyboard.press("End");
+  await page.keyboard.press("Escape");
+  await expect(items.nth(1)).toContainText("需求分析");
+  await page
+    .getByRole("listitem", { name: "开发实现", exact: true })
+    .dragTo(page.getByRole("listitem", { name: "交互设计", exact: true }));
+  await expect(items.first()).toContainText("开发实现");
+});
+
+test("dynamic list preserves anchor when adding earlier messages", async ({
+  page,
+}) => {
+  await page.goto("#/hooks/useVirtualList");
+  const list = page.getByRole("list", { name: "动态消息列表" });
+  await expect(
+    list.getByRole("listitem").filter({ hasText: /消息 0：/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "加载更早消息" }),
+  ).toBeEnabled();
+  const anchor = list.getByRole("listitem").filter({ hasText: /^消息 0：/ });
+  await expect(
+    page.getByText(/当前 30 条消息/, { exact: false }),
+  ).toBeVisible();
+  const before = await anchor.boundingBox();
+  const containerBefore = await list.boundingBox();
+  await page.getByRole("button", { name: "加载更早消息" }).click();
+  await expect(
+    page.getByText(/当前 40 条消息/, { exact: false }),
+  ).toBeVisible();
+  const after = await anchor.boundingBox();
+  const containerAfter = await list.boundingBox();
+  expect(
+    Math.abs(after!.y - containerAfter!.y - (before!.y - containerBefore!.y)),
+  ).toBeLessThan(2);
 });

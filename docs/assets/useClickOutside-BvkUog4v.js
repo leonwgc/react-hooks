@@ -1,0 +1,1 @@
+import{D as e,E as t,t as n}from"./index-B_6iXw5U.js";var r=e(),i=t();function a(){let e=(0,r.useRef)(null),[t,a]=(0,r.useState)(!1);return n(e,()=>a(!1)),(0,i.jsxs)(`div`,{ref:e,className:`demo-stack`,children:[(0,i.jsx)(`button`,{onClick:()=>a(e=>!e),children:`切换菜单`}),t&&(0,i.jsx)(`div`,{className:`notice`,children:`菜单已展开。点击按钮区域外部即可关闭。`})]})}export{a as default};

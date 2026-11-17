@@ -15,20 +15,30 @@ export const catalog = [
       ],
     ],
     returns: "items, loading, error, hasMore, loadMore, retry, reset, cancel",
-    note: "重复加载共用 Promise；getKey 去重保留首次出现记录。resetKey 深比较后清空并取消旧请求；manual 默认为 false。游标由服务适配，页码可直接使用 number。自动触底在错误后暂停，显式 retry 恢复；service 需响应 signal。",
+    note: "重复加载共用 Promise；getKey 去重保留首次出现记录。resetKey 深比较后清空并取消旧请求。direction 默认 append；prepend 将每页按原顺序插到头部，可分别使用两个实例组合前后游标与 useVirtualList。页码/游标由服务适配，null 表示无更多数据。自动触底遇错暂停，显式 retry 恢复。",
   },
   {
     name: "useVirtualList",
     category: "数据与列表",
-    description: "仅渲染可视区附近的固定高度记录。",
+    description: "仅渲染可视区附近的记录，支持固定与动态高度。",
     signature: "useVirtualList<T>(items, options)",
     parameters: [
-      ["items", "只读列表；每条记录必须提供稳定 key"],
-      ["options", "itemHeight、height、getKey 必填；overscan 默认 3"],
+      [
+        "options",
+        "itemHeight（固定行高或动态估算值）、height、getKey 必填；overscan 默认 3",
+      ],
+      [
+        "动态高度",
+        "dynamic: true 时将 virtualItem.measureRef 绑定到行，ResizeObserver 更新高度缓存；resetMeasurements 清理不可见行缓存并重新测量可见行",
+      ],
+      [
+        "边界回调",
+        "onStartReached / onEndReached，threshold 默认 40px，可组合 useInfiniteScroll 双向加载",
+      ],
     ],
     returns:
-      "containerRef, containerStyle, onScroll, totalHeight, virtualItems, scrollTo",
-    note: "将 ref、onScroll、containerStyle 绑定滚动容器，内部相对定位容器高度设为 totalHeight。行使用返回 style。第二阶段仅支持固定行高，不测量动态内容；列表角色、键盘操作由使用方提供。",
+      "containerRef, containerStyle, onScroll, totalHeight, virtualItems { item, index, key, style, measureRef }, scrollTo, resetMeasurements",
+    note: "稳定 key 用于测量缓存和阅读锚点；上方插入记录或行高变化时保留当前首个可见项目的相对位置。动态行不要设固定 height；挂载先测量，后续依赖 ResizeObserver。scrollTo 对尚未测量行使用估计高度，测量后保留可见区锚点。边界回调每次进入边界或列表尺寸变化时触发，加载去重由调用方负责。",
   },
   {
     name: "useUndoRedo",
@@ -440,12 +450,17 @@ export const catalog = [
     description: "为网站添加清晰的键盘交互。",
     signature: "useKeyPress(keys, callback, options?)",
     parameters: [
-      ["keys", "KeyboardEvent.key 字符串或数组"],
-      ["callback", "匹配时触发的回调"],
-      ["options", "enabled、allowInInput、target"],
+      [
+        "keys",
+        "字符串或数组；支持 ctrl+k、shift+alt+p、mod+s，mod 在 macOS 为 Meta，其他平台为 Ctrl；space/esc 可作别名",
+      ],
+      [
+        "options",
+        "target、scope、enabled、allowInInput、priority、preventDefault、stopPropagation、repeat、platform",
+      ],
     ],
-    returns: "void",
-    note: "默认忽略输入框、可编辑区域和输入法组合输入；组合键请在 callback 中检查修饰键。",
+    returns: "无返回值；自动清理事件监听",
+    note: "scope 限定事件目标必须位于元素内部；同 target 按 priority 从高到低分发，相同优先级后注册者优先。preventDefault 或 stopPropagation 绑定匹配后停止后续 Hook 分发。组合键精确匹配修饰键；普通单键保留旧版宽松修饰键行为。忽略输入法组合；默认跳过可编辑元素。涉及浏览器保留快捷键时应按需 preventDefault。",
   },
   {
     name: "useClipboard",
@@ -515,12 +530,16 @@ export const catalog = [
       ["service", "({ signal }, ...args) => Promise<T>"],
       [
         "options",
-        "manual 默认 true；自动请求传 manual: false 和 defaultParams；支持 pollingInterval、initialData、onSuccess、onError",
+        "manual/defaultParams；retry 默认 0，retryDelay 可为毫秒或 (第几次重试, error) => ms，默认指数退避 1s→2s→…上限 30s；shouldRetry(error, retryNumber, args)；timeout 为每次尝试上限",
+      ],
+      [
+        "自动刷新",
+        "refreshOnFocus / refreshOnReconnect 默认 false；refreshThrottleInterval 默认 1000ms（仅自动刷新）；pollingWhenHidden: false 暂停隐藏页轮询",
       ],
     ],
     returns:
-      "data, error, loading, run, runAsync, cancel, refresh, refreshAsync, mutate",
-    note: "run 吸收 Promise 拒绝并通过 error 呈现；runAsync 交给调用方处理拒绝。最新请求优先，旧结果拒绝为 AbortError。cancel 停止轮询，后续 run 可恢复。传入的 service 必须使用 signal 才会中止实际网络请求。",
+      "data, error, loading, retryCount, run, runAsync, cancel, refresh, refreshAsync, mutate",
+    note: "仅显式开启 retry 才会重试，非幂等写操作应由业务方决定。timeout 返回 RequestTimeoutError，并中止当次信号；即使 service 忽略 signal 也会结束等待，但不能强制停止服务器处理。cancel 清除轮询、重试等待并阻止自动刷新，run 恢复。聚焦/重连刷新跳过正在执行的请求；手动 refresh 不受节流限制。默认保留后台轮询，需显式设置 pollingWhenHidden: false。",
   },
   {
     name: "usePagination",
@@ -551,14 +570,22 @@ export const catalog = [
     description: "组合搜索、分页、排序与异步列表。",
     signature: "useTable<T, Filters, Response>(service, options)",
     parameters: [
-      ["service", "({ signal }, query) => Promise<Response>"],
-      ["options.initialFilters", "初始搜索条件"],
-      ["options.pageSize", "默认 10"],
-      ["options.select", "将响应转换为 { list, total }"],
+      [
+        "service / select",
+        "请求 ({ signal }, TableQuery)；select 显式映射为 { list, total }",
+      ],
+      [
+        "options",
+        "initialFilters、pageSize；urlState: { key, parseFilters, mode? } 可选，parseFilters 必须校验不可信 URL 数据",
+      ],
+      [
+        "列与预设",
+        "columns: string[]、columnsStorageKey 持久化列顺序与隐藏状态；filterPresets 提供初始命名筛选",
+      ],
     ],
     returns:
-      "list, total, page, pageSize, sort, search；请求状态与刷新方法；setPage / setPageSize / setSort",
-    note: "自动加载。提交查询、排序和修改 pageSize 回到第一页；search.setDraft 不发请求。旧请求不会覆盖新结果，总量缩小时回退有效页。保留旧列表供加载时展示，需自行禁用不适用的交互。",
+      "list, total, page, pageSize, sort, setPage, setPageSize, setSort, search, 请求方法, columns { order, hidden, visible, setOrder, setVisible }, presets, savePreset, applyPreset, deletePreset, stateError",
+    note: "URL 开启后挂载读取分页、排序和筛选，再发起首次查询；监听 popstate 并保留其他 query/hash/history.state。默认 replace，push 可回退。列配置只持久化列 key；筛选预设保留在当前 Hook 实例内，不写入存储。保存预设使用当前 draft，应用预设重置到第 1 页。序列化、存储或 URL 解析错误通过 stateError 呈现。勿在 URL 中放入敏感数据。",
   },
   {
     name: "useSelection",
@@ -662,15 +689,19 @@ export const catalog = [
     description: "管理表单值、校验和完整提交流程。",
     signature: "useForm<T>({ initialValues, validators? })",
     parameters: [
-      ["initialValues", "初始对象；后续回填调用 reset"],
+      ["options.initialValues", "初始值，不随传入对象变化自动重置"],
       [
-        "validators",
-        "字段路径到校验函数的映射，返回错误字符串或 undefined；支持 Promise",
+        "options.validators / schema",
+        "字段校验函数；schema(values) 返回 FormErrors 或 Promise<FormErrors>，可适配任意 schema 库，不依赖具体库",
+      ],
+      [
+        "校验策略",
+        "mode: onSubmit（默认）/onBlur/onChange；revalidateMode 默认 onChange；validateDebounce 默认 0，仅延迟自动校验；dependencies: { dependentField: [sourceField] }",
       ],
     ],
     returns:
-      "values, errors, touched, isDirty, isSubmitting, isValidating, submitError；register, setFieldValue, setValues, setFieldTouched, setFieldError, validate, handleSubmit, reset",
-    note: "默认提交校验，首次提交后变化重验所有规则，支持跨字段依赖。过期异步校验结果被忽略。handleSubmit 捕获提交异常到 submitError，返回 Promise<boolean>；重复提交复用 Promise。register 适用于文本、数字、checkbox、单选 select；文件和复杂控件用 setFieldValue。数字输入清空时值为 NaN，请使用 Number.isFinite 校验。",
+      "values, errors, touched, isDirty, isSubmitting, isValidating, submitError, resetCount, control, setFieldValue, setValues, register, validate(paths?), handleSubmit, reset",
+    note: "默认提交校验、提交后修改重新校验；显式 validate/submit 始终立即校验。配置 dependencies 后按变更字段与依赖传播校验，否则自动全表校验；schema 存在时始终全表校验。过期异步结果不覆盖新值。schema 抛错通过 submitError 呈现并阻止提交。control 身份稳定，结合 useFormField 和 React.memo 隔离无关字段渲染。输入数字为空时为 NaN，请用 Number.isFinite 校验。",
   },
   {
     name: "useFieldArray",
@@ -684,6 +715,30 @@ export const catalog = [
     returns:
       "fields: { id, value }[], append(item), remove(index), move(from, to), replace(items)",
     note: "渲染 key 使用 field.id；移动保留 ID，reset/replace 重新生成。数组结构变化会清除该数组的错误和 touched 元数据，再按表单策略校验。结构操作使用这里的方法，避免直接 setValues 导致 ID 与行内容错位。",
+  },
+  {
+    name: "useFormField",
+    category: "表单",
+    description: "订阅单个字段，减少无关字段的重新渲染。",
+    signature: "useFormField(control, path)",
+    parameters: [
+      ["control", "useForm 返回的稳定 control"],
+      ["path", "受 FieldPath<T> 约束的字段路径"],
+    ],
+    returns: "value, error, touched, setValue, onBlur",
+    note: "基于 useSyncExternalStore 订阅选中字段，搭配 React.memo 与稳定 control 作为组件属性。useForm 宿主仍正常响应全表状态；只隔离 memo 字段，避免夸大全表零渲染。可自行绑定原生或第三方输入控件。",
+  },
+  {
+    name: "useSortable",
+    category: "交互与存储",
+    description: "为列表提供原生拖放和可访问的键盘排序。",
+    signature: "useSortable<T>(items, { getKey, onChange, disabled? })",
+    parameters: [
+      ["items / getKey", "受控不可变数组，key 唯一且稳定"],
+      ["onChange", "(next: T[]) => void；调用方更新列表状态"],
+    ],
+    returns: "activeKey, announcement, getItemProps, move(from, to), cancel",
+    note: "把 getItemProps 绑定到可聚焦的行。空格拾取，方向键/Home/End 调整，Enter/空格确认，Esc 恢复原有顺序；保留并发编辑后的数据和新增记录。原生拖放仅接受当前实例，放下时提交顺序。announcement 绑定 role=status；触屏或不支持原生拖放的浏览器应提供上移/下移按钮。",
   },
 ] as const;
 export type HookName = (typeof catalog)[number]["name"];
