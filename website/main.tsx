@@ -10,11 +10,12 @@ import {
 import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { catalog, type HookName } from "./catalog";
-import { SyntaxCode, GuideCode } from "./SyntaxCode";
+import { GuideCode, SyntaxCode } from "./SyntaxCode";
+import { CodeBlock } from "./CodeBlock";
+import { DemoSource } from "./DemoSource";
 import SiteSearch from "./SiteSearch";
 import { useCases } from "./useCases";
 import Guide from "./content/guide.mdx";
-import demoHelpersSource from "./demos/webHelpers.ts?raw";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
 
@@ -35,51 +36,10 @@ const demos = Object.fromEntries(
 const exampleModules = import.meta.glob<{ default: ComponentType }>(
   "./examples/use*.tsx",
 );
-const exampleSources = import.meta.glob<string>("./examples/use*.tsx", {
-  query: "?raw",
-  import: "default",
-});
-const exampleHelpers = import.meta.glob<string>(["./examples/Scenario.tsx"], {
-  query: "?raw",
-  import: "default",
-});
 const examples = Object.fromEntries(
   Object.entries(exampleModules).map(([path, load]) => [
     path.split("/").pop()!.replace(".tsx", ""),
-    lazy(async () => {
-      const [module, source, shell] = await Promise.all([
-        load(),
-        exampleSources[path](),
-        exampleHelpers["./examples/Scenario.tsx"](),
-      ]);
-      const Examples = module.default;
-      const code = source
-        .replace(/import \{ Scenario \} from [^;]+;\n?/, "")
-        .replace(/import \{ delay \} from [^;]+;\n?/, "")
-        .replaceAll('"../../src"', '"@leonwgc/react-hooks"');
-      return {
-        default: () => (
-          <>
-            <Examples />
-            <details className="additional-source-details">
-              <summary>
-                查看补充场景源码 <span>TSX</span>
-              </summary>
-              <CodeBlock
-                code={
-                  code +
-                  "\n// 示例容器\n" +
-                  shell +
-                  (source.includes("webHelpers")
-                    ? "\n// 可取消的本地延时\n" + demoHelpersSource
-                    : "")
-                }
-              />
-            </details>
-          </>
-        ),
-      };
-    }),
+    lazy(load),
   ]),
 );
 const categories = [...new Set(catalog.map((hook) => hook.category))];
@@ -123,46 +83,17 @@ function LiveDemo({ name }: { name: HookName }) {
     <DemoBoundary key={name}>
       <Suspense fallback={<p className="muted">正在加载示例…</p>}>
         <div className="basic-demo">
-          <h3>基础用法</h3>
-          <Demo />
+          <div className="basic-demo-content">
+            <h3>基础用法</h3>
+            <Demo />
+          </div>
+          <DemoSource source={sources[`./demos/${name}.tsx`]} basic />
         </div>
         <Suspense fallback={<p className="muted">正在加载补充场景…</p>}>
           <Examples />
         </Suspense>
       </Suspense>
     </DemoBoundary>
-  );
-}
-function CodeBlock({
-  code,
-  language = "tsx",
-}: {
-  code: string;
-  language?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  const [failed, setFailed] = useState(false);
-  return (
-    <div className="code-block">
-      <button
-        className="copy-button"
-        onClick={() => {
-          void navigator.clipboard
-            ?.writeText(code)
-            .then(() => {
-              setCopied(true);
-              setFailed(false);
-            })
-            .catch(() => setFailed(true));
-          if (!navigator.clipboard) setFailed(true);
-        }}
-      >
-        {failed ? "请手动复制" : copied ? "已复制 ✓" : "复制代码"}
-      </button>
-      <pre tabIndex={0}>
-        <SyntaxCode code={code} language={language} />
-      </pre>
-    </div>
   );
 }
 function Home() {
@@ -362,14 +293,6 @@ function HookPage({ name }: { name: string }) {
       </article>
     );
   const index = catalog.indexOf(hook);
-  const rawSource = sources[`./demos/${hook.name}.tsx`];
-  const source =
-    rawSource
-      .replace(/(["'])\.\.\/\.\.\/src\1/g, '"@leonwgc/react-hooks"')
-      .replace(/import \{ delay \} from [^;]+;\n?/, "") +
-    (rawSource.includes("webHelpers")
-      ? "\n// 可取消的本地延时\n" + demoHelpersSource
-      : "");
   const usage = useCases[hook.name];
   return (
     <>
@@ -406,12 +329,6 @@ function HookPage({ name }: { name: string }) {
           <div className="demo-content demo-list">
             <LiveDemo name={hook.name} />
           </div>
-          <details className="source-details">
-            <summary>
-              查看基础示例源码 <span>TSX</span>
-            </summary>
-            <CodeBlock code={source} />
-          </details>
         </section>
         <section id="api">
           <h2>API</h2>

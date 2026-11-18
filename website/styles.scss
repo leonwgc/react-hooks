@@ -1980,9 +1980,12 @@ dialog h3 {
   min-width: 0;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 18px;
+  overflow: hidden;
   background: var(--bg);
-  > p {
+  .demo-scenario-content {
+    padding: 18px;
+  }
+  .demo-scenario-content > p {
     color: var(--muted);
     font-size: 12px;
     line-height: 1.8;
@@ -2017,21 +2020,6 @@ dialog h3 {
     overflow-wrap: anywhere;
   }
 }
-.additional-source-details {
-  margin-top: 18px;
-  summary {
-    cursor: pointer;
-    color: var(--muted);
-    font-size: 12px;
-  }
-  summary span {
-    margin-left: 12px;
-    color: var(--accent);
-  }
-  .code-block {
-    margin-top: 12px;
-  }
-}
 .api-result {
   > p {
     color: var(--muted);
@@ -2048,7 +2036,7 @@ dialog h3 {
   }
 }
 @media (max-width: 700px) {
-  .demo-scenario {
+  .demo-scenario .demo-scenario-content {
     padding: 12px;
   }
   .demo-scenario .demo-scenario-heading {
@@ -2063,7 +2051,7 @@ dialog h3 {
   gap: 24px;
 }
 .demo-list .basic-demo {
-  padding: 24px;
+  overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 10px;
   background: var(--bg);
@@ -2072,13 +2060,11 @@ dialog h3 {
     font-size: 15px;
   }
 }
-.demo-list + .source-details {
-  margin-top: 24px;
-  border-top: 1px solid var(--line);
-  border-radius: 8px;
+.demo-list .basic-demo-content {
+  padding: 24px;
 }
 @media (max-width: 700px) {
-  .demo-list .basic-demo {
+  .demo-list .basic-demo .basic-demo-content {
     padding: 12px;
   }
 }
@@ -2086,4 +2072,28 @@ dialog h3 {
 .demo-list .additional-demos {
   margin-top: 0;
   gap: 24px;
+}
+
+.demo-source {
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+  margin: 0;
+  summary {
+    cursor: pointer;
+    padding: 12px 18px;
+    color: var(--muted);
+    background: var(--surface);
+    font-size: 11px;
+    span {
+      float: right;
+      font-family: monospace;
+      color: var(--accent);
+    }
+  }
+  .code-block {
+    border: 0;
+    border-radius: 0;
+    margin: 0;
+  }
 }

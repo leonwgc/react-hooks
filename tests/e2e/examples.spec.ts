@@ -73,14 +73,27 @@ for (const hook of catalog) {
       await expect(
         panel.getByRole("button", { name: "重新开始此演示", exact: true }),
       ).toHaveCount(0);
+      const source = panel.locator(":scope > .scenario-source-details");
+      await source.locator("summary").click();
+      await expect(source.locator("code")).toContainText(hook.name);
+      await expect(source.locator("code")).toContainText(
+        "@leonwgc/react-hooks",
+      );
+      await expect(source.locator("code")).not.toContainText(
+        "function Examples",
+      );
+      await expect(source.locator("code")).not.toContainText("<Scenario");
+      await expect(source.locator("code")).not.toHaveText(/from ["']\./);
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth),
+      ).toBeLessThanOrEqual(390);
+      expect(
+        await source.evaluate(
+          (node) => node === node.parentElement?.lastElementChild,
+        ),
+      ).toBe(true);
+      await source.locator("summary").click();
     }
-    await page.locator(".additional-source-details summary").click();
-    await expect(page.locator(".additional-source-details code")).toContainText(
-      hook.name,
-    );
-    await expect(page.locator(".additional-source-details code")).toContainText(
-      "@leonwgc/react-hooks",
-    );
     expect(errors).toEqual([]);
   });
 }

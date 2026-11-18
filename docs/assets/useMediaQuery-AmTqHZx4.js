@@ -1,1 +1,0 @@
-import{E as e,l as t}from"./index-CPbGKt3e.js";var n=e();function r(){let e=t(`(min-width: 768px)`);return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsx)(`output`,{className:`large-value`,children:e?`桌面布局`:`移动布局`}),(0,n.jsx)(`p`,{children:`调整浏览器宽度，观察 768px 断点。`})]})}export{r as default};

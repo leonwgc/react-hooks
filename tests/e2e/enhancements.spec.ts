@@ -13,6 +13,10 @@ test("examples are vertically aligned peers without an enclosing card", async ({
     await page.goto("#/hooks/useDocumentTitle");
     await expect(page.locator(".demo-scenario")).toHaveCount(2);
     await expect(page.locator("#demo .demo-shell")).toHaveCount(0);
+    await expect(page.locator(".basic-demo > .source-details")).toHaveCount(1);
+    await expect(
+      page.locator(".demo-scenario > .scenario-source-details"),
+    ).toHaveCount(2);
     const cards = await page
       .locator("#demo .basic-demo, #demo .demo-scenario")
       .evaluateAll((nodes) =>
@@ -177,4 +181,34 @@ test("actual animation ends phases and missing events use timeout fallback", asy
   await panel.getByRole("button", { name: "切换无动画内容" }).click();
   await expect(panel.locator("output")).toHaveText("exiting · 已挂载");
   await expect(panel.locator("output")).toHaveText("unmounted · 已卸载");
+});
+
+test("each source panel contains and copies only its own example", async ({
+  page,
+  context,
+}) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.goto("#/hooks/useLatest");
+  const basic = page.locator(".basic-demo > .source-details");
+  await basic.locator("summary").click();
+  await expect(basic.locator("code")).toContainText("useLatest");
+  await expect(basic.locator("code")).not.toContainText("最新草稿");
+  const first = page.getByRole("region", {
+    name: "长期订阅读取最新草稿",
+    exact: true,
+  });
+  const source = first.locator(".scenario-source-details");
+  await source.locator("summary").click();
+  await expect(source.locator("code")).toContainText("最新草稿");
+  await expect(source.locator("code")).not.toContainText("传入值");
+  const text = await source.locator("code").textContent();
+  await source.getByRole("button", { name: "复制代码", exact: true }).click();
+  await expect(source.getByRole("button", { name: "已复制 ✓" })).toBeVisible();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(text);
+  const second = page
+    .getByRole("region", { name: "引用更新不主动渲染", exact: true })
+    .locator(".scenario-source-details");
+  await second.locator("summary").click();
+  await expect(second.locator("code")).toContainText("传入值");
+  await expect(second.locator("code")).not.toContainText("最新草稿");
 });

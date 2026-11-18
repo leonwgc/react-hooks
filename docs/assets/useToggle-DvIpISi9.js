@@ -1,1 +1,0 @@
-import{E as e,T as t}from"./index-CPbGKt3e.js";var n=e();function r(){let e=t(`网格`,`列表`);return(0,n.jsxs)(`div`,{className:`demo-row`,children:[(0,n.jsx)(`button`,{onClick:e.toggle,children:`切换布局`}),(0,n.jsxs)(`output`,{children:[`当前：`,e.value]})]})}export{r as default};

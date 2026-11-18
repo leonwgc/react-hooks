@@ -1,1 +1,0 @@
-import{E as e,d as t}from"./index-CPbGKt3e.js";var n=e();function r(){let e=t();return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsx)(`output`,{className:`large-value`,children:e===`visible`?`页面可见`:`页面隐藏`}),(0,n.jsx)(`p`,{children:`切换标签页会更新状态，可用于暂停轮询或动画。`})]})}export{r as default};
