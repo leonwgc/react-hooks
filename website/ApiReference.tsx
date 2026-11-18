@@ -2,6 +2,7 @@ import type { ComponentType } from "react";
 import type { HookName } from "./catalog";
 import { apiDocs } from "./api";
 import type { ApiParameter, ApiValue } from "./api/types";
+import { describeReturn } from "./api/returnStructure";
 
 function ApiTable({
   id,
@@ -10,6 +11,8 @@ function ApiTable({
   parameters = false,
   generics = [],
   genericDefinitions = false,
+  nested = false,
+  nameLabel = "名称",
 }: {
   id: string;
   title: string;
@@ -17,10 +20,13 @@ function ApiTable({
   parameters?: boolean;
   generics?: readonly ApiParameter[];
   genericDefinitions?: boolean;
+  nested?: boolean;
+  nameLabel?: string;
 }) {
+  const Heading = nested ? "h4" : "h3";
   return (
     <div className="api-group" id={id}>
-      <h3 id={`${id}-heading`}>{title}</h3>
+      <Heading id={`${id}-heading`}>{title}</Heading>
       <div className="table-wrap">
         <table
           className={`api-table api-detail-table${parameters ? " api-parameter-table" : ""}`}
@@ -28,7 +34,7 @@ function ApiTable({
         >
           <thead>
             <tr>
-              <th scope="col">名称</th>
+              <th scope="col">{nameLabel}</th>
               <th scope="col">
                 {genericDefinitions ? "类型约束" : "类型 / 签名"}
               </th>
@@ -102,6 +108,7 @@ export default function ApiReference({
   CodeBlock: ComponentType<{ code: string }>;
 }) {
   const api = apiDocs[name];
+  const result = describeReturn(name, api);
   const links = [
     ...(api.generics?.length
       ? [{ id: "api-generics", title: "泛型说明" }]
@@ -111,14 +118,13 @@ export default function ApiReference({
       id: `api-options-${i}`,
       title: section.title,
     })),
-    { id: "api-returns", title: "返回值" },
-    ...(api.methods?.length ? [{ id: "api-methods", title: "方法" }] : []),
+    { id: "api-result", title: "返回值" },
     ...(api.types ? [{ id: "api-types", title: "关联类型" }] : []),
   ];
   return (
     <div className="api-reference">
       <p className="api-intro">
-        调用签名列出 TypeScript 参数类型；返回值和方法见下表。?
+        调用签名列出 TypeScript 参数类型；返回结构及其成员见下表。?
         表示可省略，参数表中的“必填”表示不可省略，其余为省略时的默认值。泛型由传入值推断，也可显式指定；类型列中的说明可展开查看。
         <a
           href={`https://github.com/leonwgc/react-hooks/blob/master/${api.source}`}
@@ -184,27 +190,62 @@ export default function ApiReference({
           generics={api.generics}
         />
       ))}
-      {api.returns.length ? (
-        <ApiTable
-          id="api-returns"
-          title="返回值"
-          rows={api.returns}
-          generics={api.generics}
-        />
-      ) : (
-        <div className="api-group" id="api-returns">
-          <h3>返回值</h3>
-          <p>返回包含下列方法的对象，无额外状态字段。</p>
-        </div>
-      )}
-      {!!api.methods?.length && (
-        <ApiTable
-          id="api-methods"
-          title="方法"
-          rows={api.methods}
-          generics={api.generics}
-        />
-      )}
+      <section
+        id="api-result"
+        className="api-group api-result"
+        aria-labelledby="api-result-heading"
+      >
+        <h3 id="api-result-heading">返回值</h3>
+        <p>{result.description}</p>
+        <details className="return-structure">
+          <summary>查看完整返回类型</summary>
+          <CodeBlock code={result.type} />
+        </details>
+        {api.returns.length || result.kind === "tuple" ? (
+          <ApiTable
+            id="api-returns"
+            title={
+              result.kind === "object"
+                ? "对象属性"
+                : result.kind === "tuple"
+                  ? "元组元素"
+                  : result.kind === "function"
+                    ? "返回的函数"
+                    : "返回值说明"
+            }
+            nameLabel={
+              result.kind === "object"
+                ? "属性"
+                : result.kind === "tuple"
+                  ? "位置 / 示例变量"
+                  : result.kind === "void"
+                    ? "返回类型"
+                    : "示例变量"
+            }
+            rows={
+              result.kind === "tuple"
+                ? [...api.returns, ...(api.methods ?? [])]
+                : api.returns
+            }
+            generics={api.generics}
+            nested
+          />
+        ) : (
+          <div className="api-group" id="api-returns">
+            <p>此返回对象只包含下列方法，无额外状态属性。</p>
+          </div>
+        )}
+        {result.kind === "object" && !!api.methods?.length && (
+          <ApiTable
+            id="api-methods"
+            title="对象方法"
+            nameLabel="方法"
+            rows={api.methods}
+            generics={api.generics}
+            nested
+          />
+        )}
+      </section>
       {api.types && (
         <div className="api-group" id="api-types">
           <h3>关联类型</h3>

@@ -143,9 +143,9 @@ export const coreDocs = {
     parameters: [p("value", "T", "必填", "每次渲染写入 ref.current 的值。")],
     returns: [
       v(
-        "ref",
-        "{ current: T }",
-        "引用稳定的 ref；current 始终对应最近一次渲染值。修改 ref 不会引发渲染。",
+        "current",
+        "T",
+        "返回 ref 对象中的 current 属性，始终对应最近一次渲染值。修改 current 不会引发渲染。",
       ),
     ],
   },

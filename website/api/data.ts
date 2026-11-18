@@ -359,7 +359,7 @@ export const dataDocs = {
         name: "Response",
         type: "unknown",
         defaultValue: "PageResult<T>",
-        description: "服务原始响应类型；与 T 不同的结构可通过 transform 转换。",
+        description: "服务原始响应类型；与 T 不同的结构可通过 select 转换。",
       },
     ],
     signature:

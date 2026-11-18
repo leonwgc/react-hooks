@@ -1,0 +1,60 @@
+var e=`import * as React from "react";
+import { useDirty } from "../../src";
+import { Scenario } from "./Scenario";
+
+function Case1() {
+  const [value, setValue] = React.useState({ profile: { name: "小林" } });
+  const dirty = useDirty(value);
+  return (
+    <>
+      <label>
+        资料姓名
+        <input
+          value={value.profile.name}
+          onChange={(e) => setValue({ profile: { name: e.target.value } })}
+        />
+      </label>
+      <button onClick={() => setValue({ profile: { name: "小林" } })}>
+        恢复原始内容
+      </button>
+      <button onClick={() => dirty.reset()}>保存资料基准</button>
+      <output>{dirty.isDirty ? "资料已修改" : "资料未修改"}</output>
+    </>
+  );
+}
+function Case2() {
+  const [value, setValue] = React.useState("Hello");
+  const dirty = useDirty(value, {
+    isEqual: (a, b) => a.trim().toLowerCase() === b.trim().toLowerCase(),
+  });
+  return (
+    <>
+      <label>
+        忽略空白的标题
+        <input value={value} onChange={(e) => setValue(e.target.value)} />
+      </label>
+      <button onClick={() => setValue(" HELLO ")}>仅改变格式</button>
+      <button onClick={() => setValue("New title")}>改变内容</button>
+      <output>{dirty.isDirty ? "内容变化" : "内容相同"}</output>
+    </>
+  );
+}
+export default function Examples() {
+  return (
+    <div className="additional-demos">
+      <Scenario
+        title="嵌套表单快照"
+        description="默认深比较对象内容；恢复原始字段后会重新变为未修改状态。"
+      >
+        <Case1 />
+      </Scenario>
+      <Scenario
+        title="自定义比较规则"
+        description="忽略首尾空格与大小写，只在有意义的内容变化时提示。"
+      >
+        <Case2 />
+      </Scenario>
+    </div>
+  );
+}
+`;export{e as default};

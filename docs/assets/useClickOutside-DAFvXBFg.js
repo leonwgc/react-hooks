@@ -1,0 +1,1 @@
+import{D as e,E as t,O as n,t as r}from"./index-DCWZ6ZOA.js";var i=n(e(),1),a=t();function o(){let e=(0,i.useRef)(null),[t,n]=(0,i.useState)(!1);return r(e,()=>n(!1)),(0,a.jsxs)(`div`,{ref:e,className:`demo-stack`,children:[(0,a.jsx)(`button`,{onClick:()=>n(e=>!e),children:`切换菜单`}),t&&(0,a.jsx)(`div`,{className:`notice`,children:`菜单已展开。点击按钮区域外部即可关闭。`})]})}export{o as default};

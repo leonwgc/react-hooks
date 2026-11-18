@@ -115,6 +115,8 @@ async function saveEmail(email: string) {
 
 每个 Hook 的 TypeScript 调用签名、泛型含义与约束、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。参数类型列支持就地展开泛型说明，例如 `Cursor` 的推断方式、可选类型及分页结束标记。
 
+每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。本次新增 118 组演示，可分别展开、收起和重新开始，并查看包含辅助容器的源码。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
+
 ## 重要约定
 
 - **请求**：默认手动；自动请求传入 `manual: false` 和 `defaultParams`。`run` 通过状态呈现错误；`runAsync` / `refreshAsync` 需要处理 Promise 拒绝。旧请求会拒绝为 `AbortError`，不会覆盖新结果。服务函数应使用 `signal` 来中止实际网络任务。
@@ -148,7 +150,10 @@ website/                # 文档站源码
   content/              # MDX 使用指南
   demos/                # 每个 Hook 的独立可运行示例
   catalog.ts            # 文档目录与行为边界
-  api/                  # 59 个 Hooks 的逐字段 API 文档，按模块组织
+  api/                  # 59 个 Hooks 的逐字段 API 文档及返回结构
+  examples/             # 118 组独立补充场景与可重置演示容器
+  useCases.ts           # 每个 Hook 的功能描述与使用场景
+  DEMO_COVERAGE.md       # 演示场景覆盖清单
 docs/                   # Vite 生成的 GitHub Pages 发布产物
 tests/                  # 行为测试、SSR、类型约束及浏览器测试
 .github/workflows/      # React 18/19 与文档站验证

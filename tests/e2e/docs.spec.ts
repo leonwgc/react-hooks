@@ -395,9 +395,14 @@ test("infinite virtual feed resets query and restores form snapshots", async ({
     /已加载 (5|10) 项/,
   );
   await page.getByLabel("内容分类").selectOption("教程");
-  await expect(page.getByRole("listitem").first()).toContainText("教程 1");
   await expect(
-    page.getByRole("listitem").filter({ hasText: "文章" }),
+    page.getByRole("list", { name: "文章流" }).getByRole("listitem").first(),
+  ).toContainText("教程 1");
+  await expect(
+    page
+      .getByRole("list", { name: "文章流" })
+      .getByRole("listitem")
+      .filter({ hasText: "文章" }),
   ).toHaveCount(0);
   await page.goto("#/hooks/useUndoRedo");
   await page.getByLabel("表单标题").fill("第二个快照");

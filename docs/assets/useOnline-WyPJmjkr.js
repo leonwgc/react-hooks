@@ -1,0 +1,1 @@
+import{E as e,u as t}from"./index-DCWZ6ZOA.js";var n=e();function r(){let e=t();return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsx)(`output`,{className:`status-chip`,children:e?`● 浏览器在线`:`○ 浏览器离线`}),(0,n.jsx)(`p`,{children:`可在开发者工具中切换 Offline。在线不代表服务器一定可达。`})]})}export{r as default};

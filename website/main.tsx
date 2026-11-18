@@ -12,6 +12,7 @@ import { StrictMode } from "react";
 import { catalog, type HookName } from "./catalog";
 import { SyntaxCode, GuideCode } from "./SyntaxCode";
 import SiteSearch from "./SiteSearch";
+import { useCases } from "./useCases";
 import Guide from "./content/guide.mdx";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
@@ -28,6 +29,57 @@ const demos = Object.fromEntries(
   Object.entries(modules).map(([path, load]) => [
     path.split("/").pop()!.replace(".tsx", ""),
     lazy(load),
+  ]),
+);
+const exampleModules = import.meta.glob<{ default: ComponentType }>(
+  "./examples/use*.tsx",
+);
+const exampleSources = import.meta.glob<string>("./examples/use*.tsx", {
+  query: "?raw",
+  import: "default",
+});
+const exampleHelpers = import.meta.glob<string>(
+  ["./examples/Scenario.tsx", "./demos/webHelpers.ts"],
+  { query: "?raw", import: "default" },
+);
+const examples = Object.fromEntries(
+  Object.entries(exampleModules).map(([path, load]) => [
+    path.split("/").pop()!.replace(".tsx", ""),
+    lazy(async () => {
+      const [module, source, shell, helpers] = await Promise.all([
+        load(),
+        exampleSources[path](),
+        exampleHelpers["./examples/Scenario.tsx"](),
+        exampleHelpers["./demos/webHelpers.ts"](),
+      ]);
+      const Examples = module.default;
+      const code = source
+        .replace(/import \{ Scenario \} from [^;]+;\n?/, "")
+        .replace(/import \{ delay \} from [^;]+;\n?/, "")
+        .replaceAll('"../../src"', '"@leonwgc/react-hooks"');
+      return {
+        default: () => (
+          <>
+            <Examples />
+            <details className="additional-source-details">
+              <summary>
+                查看补充场景源码 <span>TSX</span>
+              </summary>
+              <CodeBlock
+                code={
+                  code +
+                  "\n// 示例容器\n" +
+                  shell +
+                  (source.includes("webHelpers")
+                    ? "\n// 可取消的本地延时\n" + helpers
+                    : "")
+                }
+              />
+            </details>
+          </>
+        ),
+      };
+    }),
   ]),
 );
 const categories = [...new Set(catalog.map((hook) => hook.category))];
@@ -66,10 +118,17 @@ class DemoBoundary extends Component<
 }
 function LiveDemo({ name }: { name: HookName }) {
   const Demo = demos[name];
+  const Examples = examples[name];
   return (
     <DemoBoundary key={name}>
       <Suspense fallback={<p className="muted">正在加载示例…</p>}>
-        <Demo />
+        <div className="basic-demo">
+          <h3>基础用法</h3>
+          <Demo />
+        </div>
+        <Suspense fallback={<p className="muted">正在加载补充场景…</p>}>
+          <Examples />
+        </Suspense>
       </Suspense>
     </DemoBoundary>
   );
@@ -303,10 +362,11 @@ function HookPage({ name }: { name: string }) {
       </article>
     );
   const index = catalog.indexOf(hook);
-  const source = sources[`./demos/${hook.name}.tsx`].replaceAll(
-    "'../../src'",
-    "'@leonwgc/react-hooks'",
+  const source = sources[`./demos/${hook.name}.tsx`].replace(
+    /(["'])\.\.\/\.\.\/src\1/g,
+    '"@leonwgc/react-hooks"',
   );
+  const usage = useCases[hook.name];
   return (
     <>
       <article className="doc-article">
@@ -323,6 +383,18 @@ function HookPage({ name }: { name: string }) {
           <span>UI 无关</span>
           <span>交互示例</span>
         </div>
+        <section id="usage" className="hook-usage">
+          <h2>使用场景</h2>
+          <p>{usage.overview}</p>
+          <ul>
+            {usage.scenarios.map((scenario) => (
+              <li key={scenario.title}>
+                <strong>{scenario.title}：</strong>
+                {scenario.description}
+              </li>
+            ))}
+          </ul>
+        </section>
         <section id="demo">
           <h2>
             交互演示 <span className="heading-hash">#</span>
@@ -340,7 +412,7 @@ function HookPage({ name }: { name: string }) {
           </div>
           <details className="source-details">
             <summary>
-              查看完整示例源码 <span>TSX</span>
+              查看基础示例源码 <span>TSX</span>
             </summary>
             <CodeBlock code={source} />
           </details>
@@ -378,6 +450,7 @@ function HookPage({ name }: { name: string }) {
       <aside className="toc">
         <p>本页内容</p>
         {[
+          ["usage", "使用场景"],
           ["demo", "交互演示"],
           ["api", "API"],
           ["behavior", "行为与边界"],
