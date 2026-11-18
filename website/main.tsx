@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import { StrictMode } from "react";
 import { catalog, type HookName } from "./catalog";
 import { SyntaxCode, GuideCode } from "./SyntaxCode";
+import SiteSearch from "./SiteSearch";
 import Guide from "./content/guide.mdx";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
@@ -479,6 +480,7 @@ function App() {
             </a>
           </nav>
           <div className="header-actions">
+            <SiteSearch />
             <a
               className="github-link"
               href="https://github.com/leonwgc/react-hooks"

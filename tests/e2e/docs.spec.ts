@@ -602,3 +602,89 @@ test("every checkbox demo keeps labels aligned and supports label clicks and key
     }
   }
 });
+
+test("site search supports Command K, Control K, keyboard selection and focus restoration", async ({
+  page,
+}) => {
+  await page.addInitScript(() =>
+    Object.defineProperty(navigator, "platform", { value: "MacIntel" }),
+  );
+  await page.goto("#/hooks/useBoolean");
+  const trigger = page.getByRole("button", { name: "打开站点搜索" });
+  await expect(trigger.locator("kbd")).toHaveText("⌘ K");
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "搜索文档", exact: true });
+  const input = dialog.getByRole("combobox");
+  await expect(input).toBeFocused();
+  await input.fill("useForm");
+  await expect(dialog.getByRole("option")).toHaveCount(2);
+  await input.press("ArrowDown");
+  await expect(input).toHaveAttribute(
+    "aria-activedescendant",
+    "site-search-useFormField",
+  );
+  await input.press("Enter");
+  await expect(dialog).not.toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "useFormField", exact: true }),
+  ).toBeVisible();
+  await page.keyboard.press("Meta+k");
+  await expect(input).toBeFocused();
+  await input.fill("nothing-to-find-xyz");
+  await expect(dialog.getByRole("option")).toHaveCount(0);
+  await expect(
+    dialog.getByText("没有找到相关文档，试试其他名称或关键词。"),
+  ).toBeVisible();
+  await input.press("Enter");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await trigger.click();
+  await page.keyboard.press("Escape");
+  await expect(trigger).toBeFocused();
+  const sidebarSearch = page.getByRole("textbox", {
+    name: "搜索 Hooks",
+    exact: true,
+  });
+  await sidebarSearch.focus();
+  await page.keyboard.press("Control+k");
+  await expect(input).toBeFocused();
+  await input.fill("请求");
+  await expect(
+    dialog.getByRole("option").filter({ hasText: "useRequest" }),
+  ).toBeVisible();
+  await page.keyboard.press("Control+k");
+  await expect(dialog).not.toBeVisible();
+  await expect(sidebarSearch).toBeFocused();
+});
+
+test("site search fits narrow screens and supports pointer navigation in both themes", async ({
+  page,
+}) => {
+  for (const width of [1280, 894, 390, 360]) {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("#/hooks/useBoolean");
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+    const trigger = page.getByRole("button", { name: "打开站点搜索" });
+    await expect(trigger).toBeVisible();
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "搜索文档", exact: true });
+    await dialog.getByRole("combobox").fill("使用指南");
+    await dialog.getByRole("option").click();
+    await expect(
+      page.getByRole("heading", { name: "从一个 Hook 开始" }),
+    ).toBeVisible();
+    const dark = page.getByRole("button", { name: "切换深色主题" });
+    if (await dark.count()) await dark.click();
+    await expect(trigger).toHaveCSS("color", "rgb(157, 174, 197)");
+    await trigger.click();
+    const bounds = await dialog.boundingBox();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(width);
+    await expect(dialog.getByRole("combobox")).toBeFocused();
+    await dialog.getByRole("button", { name: "关闭站点搜索" }).click();
+    await expect(trigger).toBeFocused();
+  }
+});

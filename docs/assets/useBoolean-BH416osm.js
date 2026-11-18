@@ -1,1 +1,0 @@
-import{E as e,b as t}from"./index-Ddr0ENXo.js";var n=e();function r(){let e=t(!1);return(0,n.jsxs)(`div`,{className:`demo-row`,children:[(0,n.jsx)(`button`,{onClick:e.toggle,children:`切换通知`}),(0,n.jsxs)(`output`,{children:[`通知`,e.value?`已开启`:`已关闭`]}),(0,n.jsx)(`button`,{className:`secondary`,onClick:e.setFalse,children:`关闭`})]})}export{r as default};
