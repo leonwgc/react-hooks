@@ -124,6 +124,13 @@ export function useTextareaAutoSize(
           height: node.style.height,
           overflowY: node.style.overflowY,
         };
+        let inputTimer: ReturnType<typeof setTimeout> | undefined;
+        const onInput = () => {
+          // Let React's delegated onChange commit the new controlled value first.
+          // Updating height state during the native event can restore the old value.
+          clearTimeout(inputTimer);
+          inputTimer = setTimeout(resize, 0);
+        };
         let width = node.getBoundingClientRect().width;
         const observer =
           typeof ResizeObserver === "undefined"
@@ -136,13 +143,14 @@ export function useTextareaAutoSize(
                 }
               });
         observer?.observe(node);
-        node.addEventListener("input", resize);
+        node.addEventListener("input", onInput);
         window.addEventListener("resize", resize);
         binding.current = {
           node,
           cleanup: () => {
+            clearTimeout(inputTimer);
             observer?.disconnect();
-            node.removeEventListener("input", resize);
+            node.removeEventListener("input", onInput);
             window.removeEventListener("resize", resize);
             node.style.height = original.height;
             node.style.overflowY = original.overflowY;

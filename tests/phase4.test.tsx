@@ -241,6 +241,27 @@ it("spring converges, can stop and restart, and releases animation frames", () =
   unmount();
   expect(frames.size).toBe(0);
 });
+it("autosizes native input after dispatch and cancels pending measurements on cleanup", () => {
+  vi.useFakeTimers();
+  const node = document.createElement("textarea");
+  node.style.cssText =
+    "height:33px;line-height:20px;padding:4px;box-sizing:content-box";
+  Object.defineProperty(node, "scrollHeight", {
+    get: () => node.value.split("\n").length * 20 + 8,
+  });
+  document.body.append(node);
+  const hook = renderHook(() => useTextareaAutoSize(node, ""));
+  fireEvent.input(node, { target: { value: "one\ntwo\nthree\nfour" } });
+  act(() => vi.runOnlyPendingTimers());
+  expect(hook.result.current.height).toBe(80);
+  expect(node.value).toBe("one\ntwo\nthree\nfour");
+  fireEvent.input(node, { target: { value: "short" } });
+  expect(vi.getTimerCount()).toBe(1);
+  hook.unmount();
+  expect(vi.getTimerCount()).toBe(0);
+  expect(node.style.height).toBe("33px");
+  node.remove();
+});
 it("autosizes a conditionally mounted ref target and restores disabled styles", () => {
   function Demo({ shown, enabled }: { shown: boolean; enabled: boolean }) {
     const ref = useRef<HTMLTextAreaElement>(null);

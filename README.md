@@ -33,7 +33,7 @@ cd react-hooks
 npm install
 npm pack
 # 在消费项目中运行，替换为真实路径
-npm install /path/to/leonwgc-react-hooks-0.4.0.tgz
+npm install /path/to/leonwgc-react-hooks-0.4.1.tgz
 ```
 
 ## 使用

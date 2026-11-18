@@ -172,7 +172,7 @@ function Home() {
       <section className="hero container">
         <div className="hero-copy">
           <a className="eyebrow pill" href="#/guide">
-            <span className="live-dot" /> v0.4.0 · 为 React 18 / 19 而生{" "}
+            <span className="live-dot" /> v0.4.1 · 为 React 18 / 19 而生{" "}
             <span>→</span>
           </a>
           <h1>
@@ -531,7 +531,7 @@ function App() {
       <header className="site-header">
         <div className="header-inner">
           <Logo />
-          <span className="version">v0.4.0</span>
+          <span className="version">v0.4.1</span>
           <nav className="top-nav" aria-label="主导航">
             <a className={isHome ? "active" : ""} href="#/">
               概览

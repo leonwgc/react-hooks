@@ -16,6 +16,9 @@ export default function Demo() {
           placeholder="输入多行，最多显示五行"
         />
       </label>
+      <small>
+        初始显示两行，输入超过两行后自动增高；最多显示五行，再多则内部滚动。
+      </small>
       <button
         onClick={() =>
           setText(
