@@ -39,8 +39,17 @@ const storage = {
 export const browserDocs = {
   useEventListener: {
     source,
+    generics: [
+      {
+        name: "E",
+        type: "Event",
+        defaultValue: "Event",
+        description:
+          "DOM 事件类型，例如 MouseEvent 或 KeyboardEvent；需要与事件名称对应。",
+      },
+    ],
     signature:
-      "useEventListener<E extends Event = Event>(type: string, listener: (event: E) => void, target?, options?)",
+      "useEventListener<E extends Event = Event>(\n  type: string,\n  listener: (event: E) => void,\n  target?: Target<EventTarget>,\n  options?: AddEventListenerOptions,\n)",
     parameters: [
       p("type", "string", "必填", "原生 DOM 事件名称，不带 on 前缀。"),
       p(
@@ -50,7 +59,7 @@ export const browserDocs = {
         "使用最新回调；E 仅提供静态类型约束，请与事件名称匹配。",
       ),
       target("EventTarget", true),
-      options("AddEventListenerOptions"),
+      options("AddEventListenerOptions", false),
     ],
     sections: [
       {
@@ -124,8 +133,8 @@ export const browserDocs = {
   useIntersectionObserver: {
     source,
     signature:
-      "useIntersectionObserver(target: Target<Element>, options?: IntersectionObserverInit)",
-    parameters: [target(), options("IntersectionObserverInit")],
+      "useIntersectionObserver(\n  target: Target<Element>,\n  options?: IntersectionObserverInit,\n)",
+    parameters: [target(), options("IntersectionObserverInit", false)],
     sections: [
       {
         title: "options",
@@ -173,7 +182,7 @@ export const browserDocs = {
   useClickOutside: {
     source,
     signature:
-      "useClickOutside(target: Target<Element>, callback: (event: PointerEvent) => void, enabled?: boolean)",
+      "useClickOutside(\n  target: Target<Element>,\n  callback: (event: PointerEvent) => void,\n  enabled?: boolean,\n)",
     parameters: [
       target(),
       p(
@@ -195,7 +204,7 @@ export const browserDocs = {
   useKeyPress: {
     source,
     signature:
-      "useKeyPress(keys: string | readonly string[], callback: (event: KeyboardEvent) => void, options?: KeyPressOptions)",
+      "useKeyPress(\n  keys: string | readonly string[],\n  callback: (event: KeyboardEvent) => void,\n  options?: KeyPressOptions,\n)",
     parameters: [
       p(
         "keys",
@@ -209,7 +218,7 @@ export const browserDocs = {
         "必填",
         "匹配 keydown 时触发，使用最新回调；输入法组合期间忽略。",
       ),
-      options("KeyPressOptions"),
+      options("KeyPressOptions", false),
     ],
     sections: [
       {
@@ -323,7 +332,8 @@ export const browserDocs = {
   },
   useCountdown: {
     source,
-    signature: "useCountdown(target: number | null, options?)",
+    signature:
+      "useCountdown(\n  target: number | null,\n  options?: {\n    interval?: number;\n    onEnd?: () => void;\n  },\n)",
     parameters: [
       p(
         "target",
@@ -331,7 +341,7 @@ export const browserDocs = {
         "必填",
         "结束时间的 Unix 毫秒时间戳；例如 Date.now() + 60000。null 停止。",
       ),
-      options(),
+      options("{\n    interval?: number;\n    onEnd?: () => void;\n}", false),
     ],
     sections: [
       {
@@ -368,6 +378,15 @@ export const browserDocs = {
   },
   useLocalStorageState: {
     ...storage,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "存储值的类型，由 initial 推断；读取 JSON 后仍需业务校验。",
+      },
+    ],
     signature: "useLocalStorageState<T>(key: string, initial: T)",
     notes: [
       "使用 localStorage；同步本标签页的 Hook 写入和同源其他文档的 storage 事件。直接 localStorage.setItem 不会向当前文档发送 storage 事件。",
@@ -375,6 +394,15 @@ export const browserDocs = {
   },
   useSessionStorageState: {
     ...storage,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "存储值的类型，由 initial 推断；读取 JSON 后仍需业务校验。",
+      },
+    ],
     signature: "useSessionStorageState<T>(key: string, initial: T)",
     notes: [
       "使用 sessionStorage；按浏览器会话隔离，不提供跨标签页同步。当前文档的同类 Hook 实例会同步。",
@@ -383,7 +411,7 @@ export const browserDocs = {
   useUrlState: {
     source,
     signature:
-      "useUrlState(initial?: Record<string, string>, mode?: 'replace' | 'push')",
+      'useUrlState(\n  initial?: Record<string, string>,\n  mode?: "replace" | "push",\n)',
     parameters: [
       p(
         "initial",
@@ -393,7 +421,7 @@ export const browserDocs = {
       ),
       p(
         "mode",
-        "'replace' | 'push'",
+        '"replace" | "push"',
         "'replace'",
         "replace 替换当前历史条目；push 增加可后退条目。",
       ),

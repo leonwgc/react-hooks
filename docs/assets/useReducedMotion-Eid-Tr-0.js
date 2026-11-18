@@ -1,1 +1,0 @@
-import{r as e}from"./animation-G2Hrdm3k.js";import{E as t}from"./index-D5DT_hVx.js";var n=t();function r(){let t=e();return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsx)(`output`,{children:t?`已启用：减少动态效果`:`允许完整动画`}),(0,n.jsx)(`p`,{children:`跟随系统辅助功能设置，动画组件可据此降低或关闭运动效果。`})]})}export{r as default};

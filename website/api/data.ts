@@ -53,16 +53,31 @@ export const requestMethods = [
 export const dataDocs = {
   useRequest: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "服务成功返回的数据类型；service 返回 Promise<T>。",
+      },
+      {
+        name: "Args",
+        type: "unknown[]",
+        defaultValue: "[]",
+        description:
+          "函数参数元组，例如 [id: string, page: number]；调用时按元组顺序传参。",
+      },
+    ],
     signature:
       "useRequest<T, Args extends unknown[] = []>(\n  service: RequestService<T, Args>,\n  options?: RequestOptions<T, Args>,\n)",
     parameters: [
       p(
         "service",
-        "({ signal }: RequestContext, ...args: Args) => Promise<T>",
+        "RequestService<T, Args>",
         "必填",
         "服务函数；接收取消信号和 run 传入的参数。T 为成功数据，Args 为参数元组，例如 [id: string]。",
       ),
-      options("RequestOptions<T, Args>"),
+      options("RequestOptions<T, Args>", false),
     ],
     sections: [
       {
@@ -179,7 +194,7 @@ export const dataDocs = {
   usePagination: {
     source,
     signature: "usePagination(options?: PaginationOptions)",
-    parameters: [options("PaginationOptions")],
+    parameters: [options("PaginationOptions", false)],
     sections: [
       {
         title: "options",
@@ -228,6 +243,14 @@ export const dataDocs = {
   },
   useSearch: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "object",
+        defaultValue: "无默认类型",
+        description: "筛选条件对象的结构。",
+      },
+    ],
     signature: "useSearch<T extends object>(initial: T)",
     parameters: [
       p("initial", "T", "必填", "初始筛选对象与 reset 基准；后续变化不重置。"),
@@ -257,8 +280,16 @@ export const dataDocs = {
   },
   useSelection: {
     source,
+    generics: [
+      {
+        name: "Key",
+        type: "string | number",
+        defaultValue: "无默认类型",
+        description: "选择项唯一标识的类型，仅允许 string 或 number。",
+      },
+    ],
     signature:
-      "useSelection<Key extends string | number>(keys: readonly Key[], options?)",
+      "useSelection<Key extends string | number>(\n  keys: readonly Key[],\n  options?: {\n    preserve?: boolean;\n    resetKey?: unknown;\n  },\n)",
     parameters: [
       p(
         "keys",
@@ -266,7 +297,7 @@ export const dataDocs = {
         "必填",
         "当前页可选项的唯一稳定 ID，Key 为 string 或 number。",
       ),
-      options(),
+      options("{\n    preserve?: boolean;\n    resetKey?: unknown;\n}", false),
     ],
     sections: [
       {
@@ -311,16 +342,39 @@ export const dataDocs = {
   },
   useTable: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "转换后的每一行记录类型；列表、选择与行编辑使用该类型。",
+      },
+      {
+        name: "Filters",
+        type: "object",
+        defaultValue: "无默认类型",
+        description: "筛选条件对象结构；与 TableQuery.filters 对应。",
+      },
+      {
+        name: "Response",
+        type: "unknown",
+        defaultValue: "PageResult<T>",
+        description: "服务原始响应类型；与 T 不同的结构可通过 transform 转换。",
+      },
+    ],
     signature:
-      "useTable<T, Filters extends object, Response = PageResult<T>>(\n  service: RequestService<Response, [TableQuery<Filters>]>,\n  options,\n)",
+      'useTable<T, Filters extends object, Response = PageResult<T>>(\n  service: RequestService<Response, [TableQuery<Filters>]>,\n  options: {\n    initialFilters: Filters;\n    pageSize?: number;\n    select: (response: Response) => PageResult<T>;\n    urlState?: {\n      key: string;\n      mode?: "replace" | "push";\n      parseFilters: (value: unknown) => Filters;\n    };\n    columns?: readonly string[];\n    columnsStorageKey?: string;\n    filterPresets?: Record<string, Filters>;\n  },\n)',
     parameters: [
       p(
         "service",
-        "(context: RequestContext, query: TableQuery<Filters>) => Promise<Response>",
+        "RequestService<Response, [TableQuery<Filters>]>",
         "必填",
         "接收 signal、页码、每页条数、已提交筛选与排序；挂载及查询变化时自动执行。",
       ),
-      options("object", true),
+      options(
+        '{\n    initialFilters: Filters;\n    pageSize?: number;\n    select: (response: Response) => PageResult<T>;\n    urlState?: {\n        key: string;\n        mode?: "replace" | "push";\n        parseFilters: (value: unknown) => Filters;\n    };\n    columns?: readonly string[];\n    columnsStorageKey?: string;\n    filterPresets?: Record<string, Filters>;\n}',
+        true,
+      ),
     ],
     sections: [
       {

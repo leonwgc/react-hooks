@@ -3,10 +3,19 @@ const source = "src/web/interaction.ts";
 export const webInteractionDocs = {
   useUndoRedo: {
     source,
-    signature: "useUndoRedo<T>(initial: T, options?)",
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "每一份历史快照的值类型。",
+      },
+    ],
+    signature:
+      "useUndoRedo<T>(\n  initial: T,\n  options?: {\n    limit?: number;\n  },\n)",
     parameters: [
       p("initial", "T", "必填", "初始不可变快照；后续参数变化不重置历史。"),
-      options(),
+      options("{\n    limit?: number;\n}", false),
     ],
     sections: [
       {
@@ -47,7 +56,8 @@ export const webInteractionDocs = {
   },
   useLeaveConfirm: {
     source,
-    signature: "useLeaveConfirm(dirty: boolean, options?)",
+    signature:
+      "useLeaveConfirm(\n  dirty: boolean,\n  options?: {\n    confirm?: () => boolean | Promise<boolean>;\n    message?: string;\n  },\n)",
     parameters: [
       p(
         "dirty",
@@ -55,7 +65,10 @@ export const webInteractionDocs = {
         "必填",
         "是否有未保存内容；为 true 时注册 beforeunload。",
       ),
-      options(),
+      options(
+        "{\n    confirm?: () => boolean | Promise<boolean>;\n    message?: string;\n}",
+        false,
+      ),
     ],
     sections: [
       {
@@ -112,15 +125,18 @@ export const webInteractionDocs = {
   useLongPress: {
     source,
     signature:
-      "useLongPress(callback: (event: React.PointerEvent<HTMLElement>) => void, options?)",
+      "useLongPress(\n  onLongPress: (event: React.PointerEvent<HTMLElement>) => void,\n  options?: {\n    delay?: number;\n    threshold?: number;\n    disabled?: boolean;\n  },\n)",
     parameters: [
       p(
-        "callback",
+        "onLongPress",
         "(event: React.PointerEvent<HTMLElement>) => void",
         "必填",
         "达到延迟后调用一次，传入最初按下事件；异步时不要依赖 currentTarget。",
       ),
-      options(),
+      options(
+        "{\n    delay?: number;\n    threshold?: number;\n    disabled?: boolean;\n}",
+        false,
+      ),
     ],
     sections: [
       {
@@ -156,7 +172,8 @@ export const webInteractionDocs = {
   },
   useDrag: {
     source,
-    signature: "useDrag(data: string, options?)",
+    signature:
+      'useDrag(\n  data: string,\n  options?: {\n    type?: string;\n    effectAllowed?: DataTransfer["effectAllowed"];\n    disabled?: boolean;\n  },\n)',
     parameters: [
       p(
         "data",
@@ -164,7 +181,10 @@ export const webInteractionDocs = {
         "必填",
         "写入 DataTransfer 的字符串；对象需自行序列化。",
       ),
-      options(),
+      options(
+        '{\n    type?: string;\n    effectAllowed?: DataTransfer["effectAllowed"];\n    disabled?: boolean;\n}',
+        false,
+      ),
     ],
     sections: [
       {
@@ -206,15 +226,19 @@ export const webInteractionDocs = {
   },
   useDrop: {
     source,
-    signature: "useDrop(onDrop, options?)",
+    signature:
+      'useDrop(\n  onDrop: (\n    payload: {\n      text: string;\n      files: File[];\n    },\n    event: React.DragEvent<HTMLElement>,\n  ) => void,\n  options?: {\n    type?: string;\n    disabled?: boolean;\n    dropEffect?: DataTransfer["dropEffect"];\n  },\n)',
     parameters: [
       p(
         "onDrop",
-        "(payload: { text: string; files: File[] }, event: React.DragEvent<HTMLElement>) => void",
+        "(payload: {\n    text: string;\n    files: File[];\n}, event: React.DragEvent<HTMLElement>) => void",
         "必填",
         "匹配类型或文件放下时调用；text 按 options.type 读取，files 为原始文件数组。",
       ),
-      options(),
+      options(
+        '{\n    type?: string;\n    disabled?: boolean;\n    dropEffect?: DataTransfer["dropEffect"];\n}',
+        false,
+      ),
     ],
     sections: [
       {
@@ -253,12 +277,12 @@ export const webInteractionDocs = {
   useMutationObserver: {
     source,
     signature:
-      "useMutationObserver(target: Target<Node>, callback: MutationCallback, options?: MutationObserverInit)",
+      "useMutationObserver(\n  target: Target<Node>,\n  callback: MutationCallback,\n  options?: MutationObserverInit,\n)",
     parameters: [
       target("Node"),
       p(
         "callback",
-        "(records: MutationRecord[], observer: MutationObserver) => void",
+        "MutationCallback",
         "必填",
         "使用最新回调处理变更批次；回调异常不由 Hook 捕获。",
       ),
@@ -330,7 +354,16 @@ export const webInteractionDocs = {
   },
   useSortable: {
     source: "src/web/sortable.ts",
-    signature: "useSortable<T>(items: readonly T[], options)",
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "每个可排序列表项的类型。",
+      },
+    ],
+    signature:
+      "useSortable<T>(\n  items: readonly T[],\n  options: {\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n  },\n)",
     parameters: [
       p(
         "items",
@@ -338,7 +371,10 @@ export const webInteractionDocs = {
         "必填",
         "受控列表；调用方收到 onChange 后更新状态。",
       ),
-      options("object", true),
+      options(
+        "{\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n}",
+        true,
+      ),
     ],
     sections: [
       {

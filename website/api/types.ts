@@ -9,6 +9,8 @@ export interface ApiParameter extends ApiValue {
 export interface ApiDoc {
   source: string;
   signature: string;
+  generics?: ApiParameter[];
+  typeExample?: string;
   parameters: ApiParameter[];
   sections?: { title: string; rows: ApiParameter[] }[];
   returns: ApiValue[];

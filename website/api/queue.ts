@@ -20,8 +20,18 @@ const queueTypes =
 export const queueDocs = {
   useAsyncQueue: {
     source,
-    signature: "useAsyncQueue<T = unknown>(options?)",
-    parameters: [options()],
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "unknown",
+        description:
+          "任务成功结果的类型；所有任务共用该结果类型。options 不包含结果信息，应显式传入，如 useAsyncQueue<string>()；省略时为 unknown。",
+      },
+    ],
+    signature:
+      "useAsyncQueue<T = unknown>(options?: {\n  concurrency?: number;\n})",
+    parameters: [options("{\n    concurrency?: number;\n}", false)],
     sections: [
       {
         title: "options",
@@ -61,8 +71,22 @@ export const queueDocs = {
   },
   useUpload: {
     source,
-    signature: "useUpload<T>(options)",
-    parameters: [options("object", true)],
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "上传成功后服务返回的数据类型。",
+      },
+    ],
+    signature:
+      "useUpload<T>(options: {\n  transport: (context: UploadContext) => Promise<T>;\n  concurrency?: number;\n})",
+    parameters: [
+      options(
+        "{\n    transport: (context: UploadContext) => Promise<T>;\n    concurrency?: number;\n}",
+        true,
+      ),
+    ],
     sections: [
       {
         title: "options",

@@ -1,0 +1,1 @@
+import{E as e,h as t}from"./index-BLVpMlMR.js";var n=e();function r(){let{width:e,height:r}=t();return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsxs)(`output`,{className:`large-value`,children:[e,` × `,r]}),(0,n.jsx)(`p`,{children:`窗口尺寸随浏览器缩放更新，单位 px。`})]})}export{r as default};

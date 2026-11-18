@@ -113,7 +113,7 @@ async function saveEmail(email: string) {
 | 动画（3）         | `useAnimate`、`useRafLoop`、`useReducedMotion`                                                                                                   |
 | 表单（2）         | `useForm`、`useFieldArray`                                                                                                                       |
 
-每个 Hook 的调用参数、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。
+每个 Hook 的 TypeScript 调用签名、泛型含义与约束、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。参数类型列支持就地展开泛型说明，例如 `Cursor` 的推断方式、可选类型及分页结束标记。
 
 ## 重要约定
 

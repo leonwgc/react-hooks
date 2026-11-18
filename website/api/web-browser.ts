@@ -3,10 +3,14 @@ const source = "src/web/browser.ts";
 export const webBrowserDocs = {
   useImage: {
     source,
-    signature: "useImage(src: string | null, options?)",
+    signature:
+      'useImage(\n  src: string | null,\n  options?: {\n    fallback?: string;\n    crossOrigin?: "anonymous" | "use-credentials";\n  },\n)',
     parameters: [
       p("src", "string | null", "必填", "原图 URL；null 或空字符串恢复 idle。"),
-      options(),
+      options(
+        '{\n    fallback?: string;\n    crossOrigin?: "anonymous" | "use-credentials";\n}',
+        false,
+      ),
     ],
     sections: [
       {
@@ -87,8 +91,16 @@ export const webBrowserDocs = {
   },
   useBroadcastChannel: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "发送和接收的消息类型；parse 负责运行时解析与校验。",
+      },
+    ],
     signature:
-      "useBroadcastChannel<T>(name: string | null, parse: (value: unknown) => T)",
+      "useBroadcastChannel<T>(\n  name: string | null,\n  parse: (value: unknown) => T,\n)",
     parameters: [
       p(
         "name",
@@ -126,10 +138,22 @@ export const webBrowserDocs = {
   },
   useEventSource: {
     source,
-    signature: "useEventSource<T>(url: string | null, options)",
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "解析后的消息类型；由 parse 的返回值决定。",
+      },
+    ],
+    signature:
+      "useEventSource<T>(\n  url: string | null,\n  options: {\n    parse: (data: string) => T;\n    event?: string;\n    withCredentials?: boolean;\n    factory?: (url: string, options: EventSourceInit) => EventSourceConnection;\n  },\n)",
     parameters: [
       p("url", "string | null", "必填", "SSE 地址；null 或空字符串关闭连接。"),
-      options("object", true),
+      options(
+        "{\n    parse: (data: string) => T;\n    event?: string;\n    withCredentials?: boolean;\n    factory?: (url: string, options: EventSourceInit) => EventSourceConnection;\n}",
+        true,
+      ),
     ],
     sections: [
       {

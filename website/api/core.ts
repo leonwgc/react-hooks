@@ -36,6 +36,14 @@ export const coreDocs = {
   },
   useToggle: {
     source: state,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "两个切换值及当前状态的类型。",
+      },
+    ],
     signature: "useToggle<T>(first: T, second: T)",
     parameters: [
       p("first", "T", "必填", "初始值，同时作为切换的第一个值。"),
@@ -53,6 +61,14 @@ export const coreDocs = {
   },
   useSetState: {
     source: state,
+    generics: [
+      {
+        name: "T",
+        type: "object",
+        defaultValue: "无默认类型",
+        description: "状态对象结构；更新参数为 Partial<T>，只合并顶层字段。",
+      },
+    ],
     signature: "useSetState<T extends object>(initial: T | (() => T))",
     parameters: [
       p(
@@ -73,7 +89,16 @@ export const coreDocs = {
   },
   useControllableState: {
     source: state,
-    signature: "useControllableState<T>(options: ControllableOptions<T>)",
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "受控值、默认值及变更回调共用的值类型。",
+      },
+    ],
+    signature:
+      "useControllableState<T>(\n  options: ControllableOptions<T>,\n)",
     parameters: [options("ControllableOptions<T>", true)],
     sections: [
       {
@@ -106,6 +131,14 @@ export const coreDocs = {
   },
   useLatest: {
     source: state,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "ref.current 保存的值类型。",
+      },
+    ],
     signature: "useLatest<T>(value: T)",
     parameters: [p("value", "T", "必填", "每次渲染写入 ref.current 的值。")],
     returns: [
@@ -118,8 +151,24 @@ export const coreDocs = {
   },
   useMemoizedFn: {
     source: state,
+    generics: [
+      {
+        name: "Args",
+        type: "unknown[]",
+        defaultValue: "无默认类型",
+        description:
+          "函数参数元组，例如 [id: string, page: number]；调用时按元组顺序传参。",
+      },
+      {
+        name: "Result",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "原始回调的返回类型；异步回调可为 Promise<R>，具体方法的返回值见下表。",
+      },
+    ],
     signature:
-      "useMemoizedFn<Args extends unknown[], Result>(fn: (...args: Args) => Result)",
+      "useMemoizedFn<Args extends unknown[], Result>(\n  fn: (...args: Args) => Result,\n)",
     parameters: [fnParams[0]],
     returns: [
       v(
@@ -131,6 +180,14 @@ export const coreDocs = {
   },
   useDebounce: {
     source: effects,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "输入值与防抖结果共用的类型。",
+      },
+    ],
     signature: "useDebounce<T>(value: T, wait?: number)",
     parameters: [
       p("value", "T", "必填", "需要延迟更新的值；初始返回此值。"),
@@ -146,8 +203,24 @@ export const coreDocs = {
   },
   useDebounceFn: {
     source: effects,
+    generics: [
+      {
+        name: "Args",
+        type: "unknown[]",
+        defaultValue: "无默认类型",
+        description:
+          "函数参数元组，例如 [id: string, page: number]；调用时按元组顺序传参。",
+      },
+      {
+        name: "Result",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "原始回调的返回类型；异步回调可为 Promise<R>，具体方法的返回值见下表。",
+      },
+    ],
     signature:
-      "useDebounceFn<Args extends unknown[], Result>(fn: (...args: Args) => Result, wait?: number)",
+      "useDebounceFn<Args extends unknown[], Result>(\n  fn: (...args: Args) => Result,\n  wait?: number,\n)",
     parameters: fnParams,
     returns: [],
     methods: [
@@ -166,8 +239,24 @@ export const coreDocs = {
   },
   useThrottleFn: {
     source: effects,
+    generics: [
+      {
+        name: "Args",
+        type: "unknown[]",
+        defaultValue: "无默认类型",
+        description:
+          "函数参数元组，例如 [id: string, page: number]；调用时按元组顺序传参。",
+      },
+      {
+        name: "Result",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "原始回调的返回类型；异步回调可为 Promise<R>，具体方法的返回值见下表。",
+      },
+    ],
     signature:
-      "useThrottleFn<Args extends unknown[], Result>(fn: (...args: Args) => Result, wait?: number)",
+      "useThrottleFn<Args extends unknown[], Result>(\n  fn: (...args: Args) => Result,\n  wait?: number,\n)",
     parameters: fnParams,
     returns: [],
     methods: [
@@ -191,7 +280,7 @@ export const coreDocs = {
   useInterval: {
     source: effects,
     signature:
-      "useInterval(callback: () => void, delay: number | null, immediate?: boolean)",
+      "useInterval(\n  callback: () => void,\n  delay: number | null,\n  immediate?: boolean,\n)",
     parameters: [
       p(
         "callback",
@@ -233,6 +322,15 @@ export const coreDocs = {
   },
   useEditor: {
     source: interaction,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "编辑对象的类型；此 Hook 无入参，建议显式指定，如 useEditor<Article>()。打开编辑器时传入该类型的数据。",
+      },
+    ],
     signature: "useEditor<T>()",
     parameters: [],
     returns: [
@@ -248,8 +346,24 @@ export const coreDocs = {
   },
   useAsyncAction: {
     source: interaction,
+    generics: [
+      {
+        name: "Args",
+        type: "unknown[]",
+        defaultValue: "无默认类型",
+        description:
+          "函数参数元组，例如 [id: string, page: number]；调用时按元组顺序传参。",
+      },
+      {
+        name: "Result",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "异步操作成功后的结果类型；action 与 run 的返回值均为 Promise<Result>。",
+      },
+    ],
     signature:
-      "useAsyncAction<Args extends unknown[], Result>(action: (...args: Args) => Promise<Result>)",
+      "useAsyncAction<Args extends unknown[], Result>(\n  action: (...args: Args) => Promise<Result>,\n)",
     parameters: [
       p(
         "action",
@@ -272,8 +386,23 @@ export const coreDocs = {
   },
   useDirty: {
     source: interaction,
-    signature: "useDirty<T>(value: T, options?)",
-    parameters: [p("value", "T", "必填", "当前不可变数据。"), options()],
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "当前值与基准快照共用的类型。",
+      },
+    ],
+    signature:
+      "useDirty<T>(\n  value: T,\n  options?: {\n    initialValue?: T;\n    isEqual?: (a: T, b: T) => boolean;\n  },\n)",
+    parameters: [
+      p("value", "T", "必填", "当前不可变数据。"),
+      options(
+        "{\n    initialValue?: T;\n    isEqual?: (a: T, b: T) => boolean;\n}",
+        false,
+      ),
+    ],
     sections: [
       {
         title: "options",
@@ -346,11 +475,11 @@ export const coreDocs = {
   useRafLoop: {
     source: animation,
     signature:
-      "useRafLoop(callback: (frame: { time: number; delta: number }) => void, autoStart?: boolean)",
+      "useRafLoop(\n  callback: (frame: { time: number; delta: number }) => void,\n  autoStart?: boolean,\n)",
     parameters: [
       p(
         "callback",
-        "(frame: { time: number; delta: number }) => void",
+        "(frame: {\n    time: number;\n    delta: number;\n}) => void",
         "必填",
         "time 为 RAF 时间戳；delta 为距离上一帧的毫秒数，启动后的第一帧为 0。",
       ),
@@ -370,8 +499,12 @@ export const coreDocs = {
   },
   useAnimate: {
     source: animation,
-    signature: "useAnimate(target: Target<Element>, options?)",
-    parameters: [target(), options()],
+    signature:
+      "useAnimate(\n  target: Target<Element>,\n  options?: {\n    respectReducedMotion?: boolean;\n  },\n)",
+    parameters: [
+      target(),
+      options("{\n    respectReducedMotion?: boolean;\n}", false),
+    ],
     sections: [
       {
         title: "options",

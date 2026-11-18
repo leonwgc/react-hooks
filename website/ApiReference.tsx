@@ -8,11 +8,15 @@ function ApiTable({
   title,
   rows,
   parameters = false,
+  generics = [],
+  genericDefinitions = false,
 }: {
   id: string;
   title: string;
   rows: readonly (ApiValue | ApiParameter)[];
   parameters?: boolean;
+  generics?: readonly ApiParameter[];
+  genericDefinitions?: boolean;
 }) {
   return (
     <div className="api-group" id={id}>
@@ -25,8 +29,14 @@ function ApiTable({
           <thead>
             <tr>
               <th scope="col">名称</th>
-              <th scope="col">类型 / 签名</th>
-              {parameters && <th scope="col">默认值 / 必填</th>}
+              <th scope="col">
+                {genericDefinitions ? "类型约束" : "类型 / 签名"}
+              </th>
+              {parameters && (
+                <th scope="col">
+                  {genericDefinitions ? "默认类型" : "默认值 / 必填"}
+                </th>
+              )}
               <th scope="col">说明</th>
             </tr>
           </thead>
@@ -36,11 +46,40 @@ function ApiTable({
                 <th scope="row">
                   <code>{row.name}</code>
                 </th>
-                <td data-label="类型 / 签名">
-                  <code>{row.type}</code>
+                <td
+                  data-label={genericDefinitions ? "类型约束" : "类型 / 签名"}
+                >
+                  <code>
+                    {genericDefinitions && row.type === "unknown"
+                      ? "无约束"
+                      : row.type}
+                  </code>
+                  {generics
+                    .filter((generic) =>
+                      row.type.split(/\W+/).includes(generic.name),
+                    )
+                    .map((generic) => (
+                      <details className="api-type-help" key={generic.name}>
+                        <summary>{generic.name} 类型说明</summary>
+                        <p>{generic.description}</p>
+                        <p>
+                          约束：
+                          <code>
+                            {generic.type === "unknown"
+                              ? "无约束"
+                              : generic.type}
+                          </code>
+                          ；默认类型：<code>{generic.defaultValue}</code>。
+                        </p>
+                      </details>
+                    ))}
                 </td>
                 {parameters && (
-                  <td data-label="默认值 / 必填">
+                  <td
+                    data-label={
+                      genericDefinitions ? "默认类型" : "默认值 / 必填"
+                    }
+                  >
                     <code>
                       {"defaultValue" in row ? row.defaultValue : "—"}
                     </code>
@@ -64,6 +103,9 @@ export default function ApiReference({
 }) {
   const api = apiDocs[name];
   const links = [
+    ...(api.generics?.length
+      ? [{ id: "api-generics", title: "泛型说明" }]
+      : []),
     { id: "api-parameters", title: "调用参数" },
     ...(api.sections ?? []).map((section, i) => ({
       id: `api-options-${i}`,
@@ -76,7 +118,8 @@ export default function ApiReference({
   return (
     <div className="api-reference">
       <p className="api-intro">
-        按当前实现逐项说明。参数表中的“必填”表示不可省略，其余为省略时的默认值。
+        调用签名列出 TypeScript 参数类型；返回值和方法见下表。?
+        表示可省略，参数表中的“必填”表示不可省略，其余为省略时的默认值。泛型由传入值推断，也可显式指定；类型列中的说明可展开查看。
         <a
           href={`https://github.com/leonwgc/react-hooks/blob/master/${api.source}`}
           target="_blank"
@@ -105,12 +148,25 @@ export default function ApiReference({
           </button>
         ))}
       </nav>
+      {!!api.generics?.length && (
+        <>
+          <ApiTable
+            id="api-generics"
+            title="泛型说明"
+            rows={api.generics}
+            parameters
+            genericDefinitions
+          />
+          {api.typeExample && <CodeBlock code={api.typeExample} />}
+        </>
+      )}
       {api.parameters.length ? (
         <ApiTable
           id="api-parameters"
           title="调用参数"
           rows={api.parameters}
           parameters
+          generics={api.generics}
         />
       ) : (
         <div className="api-group" id="api-parameters">
@@ -125,10 +181,16 @@ export default function ApiReference({
           title={section.title}
           rows={section.rows}
           parameters
+          generics={api.generics}
         />
       ))}
       {api.returns.length ? (
-        <ApiTable id="api-returns" title="返回值" rows={api.returns} />
+        <ApiTable
+          id="api-returns"
+          title="返回值"
+          rows={api.returns}
+          generics={api.generics}
+        />
       ) : (
         <div className="api-group" id="api-returns">
           <h3>返回值</h3>
@@ -136,7 +198,12 @@ export default function ApiReference({
         </div>
       )}
       {!!api.methods?.length && (
-        <ApiTable id="api-methods" title="方法" rows={api.methods} />
+        <ApiTable
+          id="api-methods"
+          title="方法"
+          rows={api.methods}
+          generics={api.generics}
+        />
       )}
       {api.types && (
         <div className="api-group" id="api-types">

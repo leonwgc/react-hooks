@@ -5,6 +5,14 @@ const pathTypes =
 export const formDocs = {
   useForm: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "object",
+        defaultValue: "无默认类型",
+        description: "整个表单值的对象结构，决定字段路径和各字段值的类型。",
+      },
+    ],
     signature: "useForm<T extends object>(options: FormOptions<T>)",
     parameters: [options("FormOptions<T>", true)],
     sections: [
@@ -145,13 +153,28 @@ export const formDocs = {
   },
   useFieldArray: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "object",
+        defaultValue: "无默认类型",
+        description: "整个表单值的对象结构，不是单个数组项的类型。",
+      },
+      {
+        name: "P",
+        type: "FieldPath<T>",
+        defaultValue: "无默认类型",
+        description:
+          "合法字段路径，受 FieldPath<T> 约束；字段值由 FieldValue<T, P> 推导。 此 Hook 进一步限制为值类型是数组的路径。",
+      },
+    ],
     signature:
-      "useFieldArray<T extends object, P extends FieldPath<T>>(form: FormApi<T>, name: P)",
+      "useFieldArray<T extends object, P extends FieldPath<T>>(\n  form: FormApi<T>,\n  name: P & (FieldValue<T, P> extends readonly unknown[] ? P : never),\n)",
     parameters: [
       p("form", "FormApi<T>", "必填", "同一表单 useForm 的返回对象。"),
       p(
         "name",
-        "P（值必须为数组的 FieldPath<T>）",
+        "P & (FieldValue<T, P> extends readonly unknown[] ? P : never)",
         "必填",
         "数组路径，例如 contacts 或 profile.addresses；Item 为对应数组元素类型。",
       ),
@@ -181,15 +204,33 @@ export const formDocs = {
         "替换整个数组，为所有行重新生成 id。",
       ),
     ],
-    types: pathTypes,
+    types:
+      pathTypes +
+      "\n\n// 下列 Item 是本文用于简化字段数组签名的说明性别名，不是包导出类型。\n// 例如 T = { contacts: { email: string }[] }、P = 'contacts' 时，\n// Item<T, P> = { email: string }。\ntype Item<T extends object, P extends FieldPath<T>> =\n  FieldValue<T, P> extends readonly (infer I)[] ? I : never;",
     notes: [
       "结构操作清除数组子路径的 errors/touched，再按表单策略重验；不自动清除数组根路径手工错误。form.reset 会重建所有行 id。避免绕过本 Hook 直接改变数组结构。",
     ],
   },
   useFormField: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "object",
+        defaultValue: "无默认类型",
+        description:
+          "整个表单值的对象结构；具体字段值通过 FieldValue<T, P> 得到。",
+      },
+      {
+        name: "P",
+        type: "FieldPath<T>",
+        defaultValue: "无默认类型",
+        description:
+          "合法字段路径，受 FieldPath<T> 约束；字段值由 FieldValue<T, P> 推导。",
+      },
+    ],
     signature:
-      "useFormField<T extends object, P extends FieldPath<T>>(control: FormControl<T>, path: P)",
+      "useFormField<T extends object, P extends FieldPath<T>>(\n  control: FormControl<T>,\n  path: P,\n)",
     parameters: [
       p(
         "control",
@@ -197,7 +238,7 @@ export const formDocs = {
         "必填",
         "来自 useForm 的稳定 control；与 React.memo 一起传给字段组件。",
       ),
-      p("path", "P extends FieldPath<T>", "必填", "要订阅的字段路径。"),
+      p("path", "P", "必填", "要订阅的字段路径。"),
     ],
     returns: [
       v("value", "FieldValue<T, P>", "当前路径值，类型随路径推导。"),

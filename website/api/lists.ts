@@ -3,15 +3,57 @@ const source = "src/web/list.ts";
 export const listDocs = {
   useInfiniteScroll: {
     source,
-    signature: "useInfiniteScroll<T, Cursor>(service, options)",
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "每一条列表记录的类型，与 InfinitePage.items 和返回的 items 对应。",
+      },
+      {
+        name: "Cursor",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description:
+          "分页游标的类型，由 initialCursor 和 service 的参数共同推断，也可显式指定。页码可用 number（如 1），令牌可用 string（如 'page-2'），也可使用后端要求的对象结构。nextCursor: Cursor | null 中的 null 专门表示结束，不应作为 initialCursor。",
+      },
+    ],
+    typeExample: `import { useInfiniteScroll, type InfinitePage } from "@leonwgc/react-hooks";
+
+interface Article { id: number; title: string }
+
+// T = Article，Cursor = number：从第 1 页开始。
+export function useArticleFeed() {
+  const list = useInfiniteScroll<Article, number>(
+    async ({ cursor, signal }): Promise<InfinitePage<Article, number>> => {
+      const response = await fetch('/api/articles?page=' + cursor, { signal });
+      if (!response.ok) throw new Error('加载失败');
+      const page: InfinitePage<Article, number> = await response.json();
+      // 服务端结构：{ items: Article[], nextCursor: number | null }
+      // TypeScript 注解不校验 JSON；实际项目应校验服务端响应。
+      return page;
+    },
+    { initialCursor: 1 },
+  );
+  // list.items 的类型是 Article[]。
+  return list;
+}
+// 若服务端返回字符串令牌，使用 <Article, string>，
+// 并将 initialCursor 和 nextCursor 改为对应字符串（结束时仍返回 null）。`,
+    signature:
+      'useInfiniteScroll<T, Cursor>(\n  service: (context: {\n    signal: AbortSignal;\n    cursor: Cursor;\n  }) => Promise<InfinitePage<T, Cursor>>,\n  options: {\n    initialCursor: Cursor;\n    manual?: boolean;\n    direction?: "append" | "prepend";\n    resetKey?: unknown;\n    getKey?: (item: T) => React.Key;\n    sentinel?: Target<Element>;\n  },\n)',
     parameters: [
       p(
         "service",
-        "(context: { signal: AbortSignal; cursor: Cursor }) => Promise<InfinitePage<T, Cursor>>",
+        "(context: {\n    signal: AbortSignal;\n    cursor: Cursor;\n}) => Promise<InfinitePage<T, Cursor>>",
         "必填",
         "按当前游标取一页；将 signal 传给实际请求。",
       ),
-      options("object", true),
+      options(
+        '{\n    initialCursor: Cursor;\n    manual?: boolean;\n    direction?: "append" | "prepend";\n    resetKey?: unknown;\n    getKey?: (item: T) => React.Key;\n    sentinel?: Target<Element>;\n}',
+        true,
+      ),
     ],
     sections: [
       {
@@ -101,8 +143,16 @@ export const listDocs = {
   },
   useVirtualList: {
     source,
+    generics: [
+      {
+        name: "T",
+        type: "unknown",
+        defaultValue: "无默认类型",
+        description: "每条原始列表记录的类型，与 VirtualItem.item 对应。",
+      },
+    ],
     signature:
-      "useVirtualList<T>(items: readonly T[], options: VirtualListOptions<T>)",
+      "useVirtualList<T>(\n  items: readonly T[],\n  options: VirtualListOptions<T>,\n)",
     parameters: [
       p("items", "readonly T[]", "必填", "全部记录，使用不可变数组更新。"),
       options("VirtualListOptions<T>", true),

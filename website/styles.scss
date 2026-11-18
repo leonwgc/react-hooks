@@ -1674,6 +1674,24 @@ dialog h3 {
   .api-detail-table td {
     color: var(--muted);
   }
+  .api-type-help {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.7;
+    summary {
+      color: var(--accent);
+      cursor: pointer;
+      border-radius: 3px;
+      &:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+      }
+    }
+    p {
+      margin: 8px 0 0;
+      font-size: inherit;
+    }
+  }
   .api-notes ul {
     padding-left: 20px;
     color: var(--muted);

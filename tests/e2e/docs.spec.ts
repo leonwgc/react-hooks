@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { catalog } from "../../website/catalog";
+import { apiDocs } from "../../website/api";
 
 test("home, theme and guide work", async ({ page }) => {
   await page.goto("");
@@ -50,6 +51,14 @@ test("all hook routes render their own demo and source without page errors", asy
     ).toBeVisible();
     await expect(page.locator("#api-parameters")).toBeAttached();
     await expect(page.locator("#api-returns")).toBeAttached();
+    await expect(page.locator("#api .code-block code").first()).toHaveText(
+      apiDocs[hook.name].signature,
+    );
+    for (const generic of apiDocs[hook.name].generics ?? []) {
+      await expect(page.locator("#api-generics")).toContainText(
+        generic.description,
+      );
+    }
     await expect(page.locator("#api .api-detail-table").first()).toBeAttached();
     await expect(page.locator("#api .api-intro a")).toHaveAttribute(
       "href",
@@ -524,6 +533,27 @@ test("API reference separates configuration, result types and methods at desktop
         .boundingBox();
       expect(nameBox!.width).toBeGreaterThan(250);
     }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  }
+  for (const width of [894, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("#/hooks/useInfiniteScroll");
+    const initialCursor = row("initialCursor", "#api-options-0");
+    const explanation = initialCursor.locator("details");
+    if ((await explanation.getAttribute("open")) === null) {
+      await initialCursor.getByText("Cursor 类型说明", { exact: true }).click();
+    }
+    await expect(initialCursor).toContainText(
+      "由 initialCursor 和 service 的参数共同推断",
+    );
+    await expect(initialCursor.locator("details p").first()).toBeVisible();
+    await expect(row("Cursor", "#api-generics")).toContainText("number");
+    await expect(row("Cursor", "#api-generics")).toContainText("string");
+    await expect(page.locator("#api .code-block code").first()).toContainText(
+      "initialCursor: Cursor",
+    );
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(width);
