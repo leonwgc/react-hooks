@@ -17,6 +17,11 @@ export class RequestTimeoutError extends Error {
 }
 export type RequestOptions<T, Args extends unknown[]> = {
   initialData?: T;
+  ready?: boolean;
+  refreshDeps?: DependencyList;
+  loadingDelay?: number;
+  onBefore?: (args: Args) => void;
+  onFinally?: (data: T | undefined, error: unknown, args: Args) => void;
   pollingInterval?: number;
   pollingWhenHidden?: boolean;
   retry?: number;
@@ -33,6 +38,12 @@ export type RequestOptions<T, Args extends unknown[]> = {
   | { manual: false; defaultParams: Args }
 );
 
+export class RequestNotReadyError extends Error {
+  constructor() {
+    super("Request is not ready");
+    this.name = "NotReadyError";
+  }
+}
 function waitForRetry(ms: number, signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
@@ -108,11 +119,13 @@ export function useRequest<T, Args extends unknown[] = []>(
     data: T | undefined;
     error: unknown;
     loading: boolean;
+    fetching: boolean;
     retryCount: number;
   }>({
     data: options.initialData,
     error: undefined,
     loading: false,
+    fetching: false,
     retryCount: 0,
   });
   const [completed, setCompleted] = useState(0);
@@ -123,6 +136,9 @@ export function useRequest<T, Args extends unknown[] = []>(
   const pollTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
+  const loadingTimer = useRef<ReturnType<typeof setTimeout> | undefined>(
+    undefined,
+  );
   const mounted = useRef(true);
   const pollingStopped = useRef(false);
   const busy = useRef(false);
@@ -130,7 +146,9 @@ export function useRequest<T, Args extends unknown[] = []>(
   const config = useLatest(options);
   const call = useMemoizedFn(service);
   const runAsync = useMemoizedFn(async (...args: Args): Promise<T> => {
+    if (config.current.ready === false) throw new RequestNotReadyError();
     clearTimeout(pollTimer.current);
+    clearTimeout(loadingTimer.current);
     const id = ++sequence.current;
     controller.current?.abort();
     const abort = new AbortController();
@@ -138,16 +156,27 @@ export function useRequest<T, Args extends unknown[] = []>(
     params.current = args;
     pollingStopped.current = false;
     busy.current = true;
+    const requestedDelay = config.current.loadingDelay ?? 0;
+    const delay = Number.isFinite(requestedDelay)
+      ? Math.max(0, requestedDelay)
+      : 0;
+    if (delay > 0)
+      loadingTimer.current = setTimeout(() => {
+        if (mounted.current && id === sequence.current && busy.current)
+          setState((previous) => ({ ...previous, loading: true }));
+      }, delay);
     if (mounted.current)
       setState((previous) => ({
         ...previous,
-        loading: true,
+        loading: delay === 0,
+        fetching: true,
         error: undefined,
         retryCount: 0,
       }));
     let data: T;
     let retryCount = 0;
     try {
+      config.current.onBefore?.(args);
       for (;;) {
         try {
           data = await requestAttempt(
@@ -189,21 +218,38 @@ export function useRequest<T, Args extends unknown[] = []>(
       if (id !== sequence.current || abort.signal.aborted || !mounted.current)
         throw abortError();
       busy.current = false;
+      clearTimeout(loadingTimer.current);
       setState((previous) => ({
         ...previous,
         error: isAbort(error) ? undefined : error,
         loading: false,
+        fetching: false,
       }));
       setCompleted((n) => n + 1);
-      if (!isAbort(error)) config.current.onError?.(error, args);
+      try {
+        if (!isAbort(error)) config.current.onError?.(error, args);
+      } finally {
+        config.current.onFinally?.(undefined, error, args);
+      }
       throw error;
     }
     if (id !== sequence.current || abort.signal.aborted || !mounted.current)
       throw abortError();
     busy.current = false;
-    setState({ data, error: undefined, loading: false, retryCount });
+    clearTimeout(loadingTimer.current);
+    setState({
+      data,
+      error: undefined,
+      loading: false,
+      fetching: false,
+      retryCount,
+    });
     setCompleted((n) => n + 1);
-    config.current.onSuccess?.(data, args);
+    try {
+      config.current.onSuccess?.(data, args);
+    } finally {
+      config.current.onFinally?.(data, undefined, args);
+    }
     return data;
   });
   const run = useMemoizedFn((...args: Args) => {
@@ -211,12 +257,17 @@ export function useRequest<T, Args extends unknown[] = []>(
   });
   const cancel = useMemoizedFn(() => {
     clearTimeout(pollTimer.current);
+    clearTimeout(loadingTimer.current);
     sequence.current++;
     controller.current?.abort();
     pollingStopped.current = true;
     busy.current = false;
     if (mounted.current)
-      setState((previous) => ({ ...previous, loading: false }));
+      setState((previous) => ({
+        ...previous,
+        loading: false,
+        fetching: false,
+      }));
   });
   const refreshAsync = useMemoizedFn(() =>
     params.current
@@ -237,17 +288,47 @@ export function useRequest<T, Args extends unknown[] = []>(
   );
   useEffect(() => {
     mounted.current = true;
-    if (config.current.manual === false) run(...config.current.defaultParams);
     return () => {
       mounted.current = false;
       sequence.current++;
       controller.current?.abort();
       clearTimeout(pollTimer.current);
+      clearTimeout(loadingTimer.current);
     };
   }, [config, run]);
+  const dependency = useRef<{ values: DependencyList; version: number }>({
+    values: [],
+    version: 0,
+  });
+  const deps = options.refreshDeps ?? [];
+  if (
+    deps.length !== dependency.current.values.length ||
+    deps.some(
+      (value, index) => !Object.is(value, dependency.current.values[index]),
+    )
+  )
+    dependency.current = {
+      values: [...deps],
+      version: dependency.current.version + 1,
+    };
+  useEffect(() => {
+    if (options.ready === false) {
+      cancel();
+      return;
+    }
+    if (config.current.manual === false) run(...config.current.defaultParams);
+  }, [
+    options.ready !== false,
+    options.manual,
+    dependency.current.version,
+    config,
+    run,
+    cancel,
+  ]);
   useEffect(() => {
     const autoRefresh = () => {
       if (
+        config.current.ready === false ||
         !params.current ||
         busy.current ||
         pollingStopped.current ||
@@ -288,7 +369,8 @@ export function useRequest<T, Args extends unknown[] = []>(
     if (
       !options.pollingInterval ||
       options.pollingInterval <= 0 ||
-      state.loading ||
+      options.ready === false ||
+      state.fetching ||
       !params.current ||
       pollingStopped.current ||
       (!visible && options.pollingWhenHidden === false)
@@ -307,7 +389,8 @@ export function useRequest<T, Args extends unknown[] = []>(
     options.pollingInterval,
     options.pollingWhenHidden,
     visible,
-    state.loading,
+    state.fetching,
+    options.ready !== false,
     completed,
     refresh,
     config,
@@ -710,64 +793,119 @@ export function useTable<T, Filters extends object, Response = PageResult<T>>(
     search: { ...search, submit, reset },
   };
 }
+export interface SelectionOptions<Key> {
+  preserve?: boolean;
+  resetKey?: unknown;
+  disabledKeys?: readonly Key[];
+  maxSelected?: number;
+}
 export function useSelection<Key extends string | number>(
   keys: readonly Key[],
-  options: { preserve?: boolean; resetKey?: unknown } = {},
+  options: SelectionOptions<Key> = {},
 ) {
   const [stored, setStored] = useState<Set<Key>>(() => new Set());
   const previousReset = useRef(options.resetKey);
-  const visibleKeys = new Set(keys);
+  const anchor = useRef<Key | undefined>(undefined);
+  const visible = new Set(keys),
+    disabled = new Set(options.disabledKeys);
+  const limit = Number.isFinite(options.maxSelected)
+    ? Math.max(0, Math.floor(options.maxSelected!))
+    : Infinity;
   const resetting = !equal(previousReset.current, options.resetKey);
-  const selected = resetting
-    ? new Set<Key>()
-    : new Set(
-        [...stored].filter((key) => options.preserve || visibleKeys.has(key)),
-      );
+  const normalize = (items: Iterable<Key>) =>
+    new Set(
+      [...items]
+        .filter(
+          (key) => !disabled.has(key) && (options.preserve || visible.has(key)),
+        )
+        .slice(0, limit),
+    );
+  const selected = resetting ? new Set<Key>() : normalize(stored);
   const current = useLatest(selected);
   useEffect(() => {
     if (resetting) {
       previousReset.current = options.resetKey;
+      anchor.current = undefined;
       setStored(new Set());
-    } else if (!options.preserve)
-      setStored((previous) =>
-        [...previous].every((key) => visibleKeys.has(key))
-          ? previous
-          : new Set([...previous].filter((key) => visibleKeys.has(key))),
-      );
+    } else if (
+      stored.size !== selected.size ||
+      [...stored].some((key) => !selected.has(key))
+    )
+      setStored(selected);
   });
   const update = useMemoizedFn((fn: (previous: Set<Key>) => Set<Key>) => {
-    const next = fn(current.current);
+    const next = normalize(fn(current.current));
     current.current = next;
     setStored(next);
   });
-  const toggle = useMemoizedFn((key: Key) =>
+  const selectRange = useMemoizedFn(
+    (from: Key, to: Key, checked: boolean = true) => {
+      const start = keys.indexOf(from),
+        end = keys.indexOf(to);
+      if (start < 0 || end < 0) return;
+      update((previous) => {
+        const next = new Set(previous);
+        for (const key of keys.slice(
+          Math.min(start, end),
+          Math.max(start, end) + 1,
+        )) {
+          if (disabled.has(key)) continue;
+          if (checked) {
+            if (next.size < limit) next.add(key);
+          } else next.delete(key);
+        }
+        return next;
+      });
+    },
+  );
+  const toggle = useMemoizedFn((key: Key, action: { range?: boolean } = {}) => {
+    if (disabled.has(key)) return;
+    if (
+      action.range &&
+      anchor.current !== undefined &&
+      keys.includes(anchor.current)
+    ) {
+      selectRange(anchor.current, key, !current.current.has(key));
+      return;
+    }
+    anchor.current = key;
     update((previous) => {
       const next = new Set(previous);
       if (next.has(key)) next.delete(key);
-      else next.add(key);
+      else if (next.size < limit) next.add(key);
       return next;
-    }),
-  );
+    });
+  });
+  const eligible = [...new Set(keys)].filter((key) => !disabled.has(key));
   const selectAll = useMemoizedFn(() =>
-    update((previous) => new Set([...previous, ...keys])),
+    update((previous) => new Set([...previous, ...eligible])),
   );
-  const clear = useMemoizedFn(() => update(() => new Set()));
+  const clear = useMemoizedFn(() => {
+    anchor.current = undefined;
+    update(() => new Set());
+  });
   const toggleAll = useMemoizedFn(() =>
     update((previous) => {
-      const all = keys.length > 0 && keys.every((key) => previous.has(key));
+      const all =
+        eligible.length > 0 && eligible.every((key) => previous.has(key));
       const next = new Set(previous);
-      keys.forEach((key) => (all ? next.delete(key) : next.add(key)));
+      eligible.forEach((key) => (all ? next.delete(key) : next.add(key)));
       return next;
     }),
   );
-  const allSelected = keys.length > 0 && keys.every((key) => selected.has(key));
+  const allSelected =
+    eligible.length > 0 && eligible.every((key) => selected.has(key));
   return {
     selected,
     selectedKeys: [...selected],
     allSelected,
-    partiallySelected: !allSelected && keys.some((key) => selected.has(key)),
+    partiallySelected:
+      !allSelected && eligible.some((key) => selected.has(key)),
     isSelected: (key: Key) => selected.has(key),
+    isDisabled: (key: Key) => disabled.has(key),
+    isAtLimit: selected.size >= limit,
     toggle,
+    selectRange,
     selectAll,
     toggleAll,
     clear,

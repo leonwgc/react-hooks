@@ -64,3 +64,25 @@ export function setPath<T>(value: T, path: string, next: unknown): T {
   };
   return visit(value, 0) as T;
 }
+
+export function unsetPath<T>(value: T, path: string): T {
+  const keys = parts(path);
+  const visit = (current: unknown, index: number): unknown => {
+    if (
+      !current ||
+      typeof current !== "object" ||
+      !Object.prototype.hasOwnProperty.call(current, keys[index])
+    )
+      return current;
+    const copy = Array.isArray(current) ? [...current] : { ...current };
+    if (index === keys.length - 1) Reflect.deleteProperty(copy, keys[index]);
+    else
+      Reflect.set(
+        copy,
+        keys[index],
+        visit(Reflect.get(copy, keys[index]), index + 1),
+      );
+    return copy;
+  };
+  return visit(value, 0) as T;
+}

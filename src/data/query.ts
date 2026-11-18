@@ -1,6 +1,53 @@
-import { useCallback, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useSyncExternalStore,
+} from "react";
 import { abortError } from "../internal/utils.js";
 
+export type QueryKeyPart =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly QueryKeyPart[]
+  | { readonly [key: string]: QueryKeyPart };
+export type QueryKey = string | readonly QueryKeyPart[];
+// Canonical keys deliberately reject values that JSON would silently discard.
+function keyHash(key: QueryKey): string {
+  const seen = new Set<object>();
+  const normalize = (value: QueryKeyPart): QueryKeyPart => {
+    if (
+      value === null ||
+      typeof value === "string" ||
+      typeof value === "boolean"
+    )
+      return value;
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "object" || seen.has(value))
+      throw new TypeError("Query keys must be finite, acyclic JSON values");
+    seen.add(value);
+    let result: QueryKeyPart;
+    if (Array.isArray(value)) result = value.map(normalize);
+    else {
+      if (
+        Object.getPrototypeOf(value) !== Object.prototype &&
+        Object.getPrototypeOf(value) !== null
+      )
+        throw new TypeError("Query key objects must be plain objects");
+      result = Object.fromEntries(
+        Object.keys(value)
+          .sort()
+          .map((name) => [name, normalize(Reflect.get(value, name))]),
+      );
+    }
+    seen.delete(value);
+    return result;
+  };
+  return JSON.stringify(normalize(key));
+}
 export interface QueryState<T> {
   data: T | undefined;
   error: unknown;
@@ -8,17 +55,17 @@ export interface QueryState<T> {
   isFetching: boolean;
   updatedAt: number;
 }
-export interface QueryStore<T, Key extends string = string> {
+export interface QueryStore<T, Key extends QueryKey = string> {
   subscribe(key: Key, listener: () => void, enabled?: boolean): () => void;
   getSnapshot(key: Key): QueryState<T>;
   getServerSnapshot(): QueryState<T>;
   fetch(key: Key, force?: boolean): Promise<T>;
-  invalidate(key?: Key): void;
+  invalidate(key?: QueryKey, options?: { exact?: boolean }): void;
   setData(key: Key, value: T | ((previous: T | undefined) => T)): void;
   cancel(key: Key): void;
   clear(): void;
 }
-export function createQueryStore<T, Key extends string = string>(
+export function createQueryStore<T, Key extends QueryKey = string>(
   service: (context: { signal: AbortSignal }, key: Key) => Promise<T>,
   options: { staleTime?: number; cacheTime?: number } = {},
 ): QueryStore<T, Key> {
@@ -30,6 +77,7 @@ export function createQueryStore<T, Key extends string = string>(
     updatedAt: 0,
   };
   interface Entry {
+    key: Key;
     state: QueryState<T>;
     cached?: { data: T };
     listeners: Map<() => void, boolean>;
@@ -39,21 +87,23 @@ export function createQueryStore<T, Key extends string = string>(
     promise?: Promise<T>;
     timer?: ReturnType<typeof setTimeout>;
   }
-  const entries = new Map<Key, Entry>();
+  const entries = new Map<string, Entry>();
   const duration = (value: number | undefined, fallback: number) =>
     value === undefined || Number.isNaN(value) ? fallback : Math.max(0, value);
   const staleTime = duration(options.staleTime, 30000);
   const cacheTime = duration(options.cacheTime, 300000);
   const entryFor = (key: Key) => {
-    let entry = entries.get(key);
+    const hash = keyHash(key);
+    let entry = entries.get(hash);
     if (!entry) {
       entry = {
+        key: JSON.parse(hash) as Key,
         state: empty,
         listeners: new Map(),
         invalid: true,
         generation: 0,
       };
-      entries.set(key, entry);
+      entries.set(hash, entry);
     }
     return entry;
   };
@@ -62,7 +112,7 @@ export function createQueryStore<T, Key extends string = string>(
     for (const listener of entry.listeners.keys()) listener();
   };
   const cancel = (key: Key) => {
-    const entry = entries.get(key);
+    const entry = entries.get(keyHash(key));
     if (!entry) return;
     entry.generation++;
     entry.controller?.abort();
@@ -97,7 +147,7 @@ export function createQueryStore<T, Key extends string = string>(
       Promise.resolve()
         .then(() => {
           if (controller.signal.aborted) throw abortError();
-          return service({ signal: controller.signal }, key);
+          return service({ signal: controller.signal }, entry.key);
         })
         .then(
           (value) => {
@@ -112,7 +162,10 @@ export function createQueryStore<T, Key extends string = string>(
     })
       .then(
         (value) => {
-          if (entries.get(key) === entry && generation === entry.generation) {
+          if (
+            entries.get(keyHash(key)) === entry &&
+            generation === entry.generation
+          ) {
             entry.invalid = false;
             entry.cached = { data: value };
             publish(entry, {
@@ -126,7 +179,10 @@ export function createQueryStore<T, Key extends string = string>(
           return value;
         },
         (error) => {
-          if (entries.get(key) === entry && generation === entry.generation)
+          if (
+            entries.get(keyHash(key)) === entry &&
+            generation === entry.generation
+          )
             publish(entry, {
               ...entry.state,
               error,
@@ -140,7 +196,7 @@ export function createQueryStore<T, Key extends string = string>(
         if (generation === entry.generation) {
           entry.promise = undefined;
           entry.controller = undefined;
-          if (!entry.listeners.size && entries.get(key) === entry)
+          if (!entry.listeners.size && entries.get(keyHash(key)) === entry)
             expire(key, entry);
         }
       });
@@ -158,16 +214,16 @@ export function createQueryStore<T, Key extends string = string>(
     if (cacheTime === Infinity) return;
     entry.timer = setTimeout(
       () => {
-        if (!entry.listeners.size && entries.get(key) === entry) {
+        if (!entry.listeners.size && entries.get(keyHash(key)) === entry) {
           cancel(key);
-          entries.delete(key);
+          entries.delete(keyHash(key));
         }
       },
       Math.min(cacheTime, 2147483647),
     );
   };
   return {
-    getSnapshot: (key) => entries.get(key)?.state ?? empty,
+    getSnapshot: (key) => entries.get(keyHash(key))?.state ?? empty,
     getServerSnapshot: () => empty,
     subscribe(key, listener, enabled = true) {
       const entry = entryFor(key);
@@ -180,16 +236,28 @@ export function createQueryStore<T, Key extends string = string>(
       };
     },
     fetch,
-    invalidate(key) {
-      const targets = key === undefined ? [...entries.keys()] : [key];
-      for (const target of targets) {
-        const entry = entries.get(target);
-        if (!entry) continue;
-        cancel(target);
+    invalidate(key, { exact = true } = {}) {
+      const hash = key === undefined ? undefined : keyHash(key);
+      for (const [entryHash, entry] of entries) {
+        const matches =
+          hash === undefined ||
+          (exact
+            ? entryHash === hash
+            : typeof key === "string"
+              ? typeof entry.key === "string" && entry.key.startsWith(key)
+              : Array.isArray(key) &&
+                Array.isArray(entry.key) &&
+                key.length <= entry.key.length &&
+                key.every(
+                  (part, index) =>
+                    keyHash([part]) === keyHash([entry.key[index]]),
+                ));
+        if (!matches) continue;
+        cancel(entry.key);
         entry.invalid = true;
         if ([...entry.listeners.values()].some(Boolean))
-          void fetch(target, true).catch(() => {});
-        else if (!entry.listeners.size) expire(target, entry);
+          void fetch(entry.key, true).catch(() => {});
+        else if (!entry.listeners.size) expire(entry.key, entry);
       }
     },
     setData(key, value) {
@@ -212,59 +280,159 @@ export function createQueryStore<T, Key extends string = string>(
     },
     cancel(key) {
       cancel(key);
-      const entry = entries.get(key);
+      const entry = entries.get(keyHash(key));
       if (entry && !entry.listeners.size) expire(key, entry);
     },
     clear() {
-      for (const [key, entry] of entries) {
+      for (const entry of entries.values()) {
+        const key = entry.key;
         cancel(key);
         clearTimeout(entry.timer);
         entry.invalid = true;
         entry.cached = undefined;
         if (entry.listeners.size) publish(entry, empty);
-        else entries.delete(key);
+        else entries.delete(keyHash(key));
       }
     },
   };
 }
-export function useQuery<T, Key extends string>(
+export interface QueryOptions<T, Selected = T> {
+  enabled?: boolean;
+  select?: (data: T) => Selected;
+  isEqual?: (a: Selected | undefined, b: Selected | undefined) => boolean;
+  notifyOnChangeProps?: readonly (keyof QueryState<Selected>)[];
+  keepPreviousData?: boolean;
+}
+export function useQuery<T, Key extends QueryKey, Selected = T>(
   store: QueryStore<T, Key>,
   key: Key | null,
-  options: { enabled?: boolean } = {},
+  options: QueryOptions<T, Selected> = {},
 ) {
+  const hash = key === null ? null : keyHash(key);
+  // Equivalent key objects should not tear down and recreate the subscription.
+  const stableKey = useMemo(() => key, [hash]);
   const enabled = options.enabled !== false;
   const subscribe = useCallback(
     (listener: () => void) =>
-      key === null ? () => {} : store.subscribe(key, listener, enabled),
-    [store, key, enabled],
+      stableKey === null
+        ? () => {}
+        : store.subscribe(stableKey, listener, enabled),
+    [store, stableKey, enabled],
   );
-  const snapshot = useCallback(
-    () => (key === null ? store.getServerSnapshot() : store.getSnapshot(key)),
-    [store, key],
+  const cache = useRef<{
+    store: QueryStore<T, Key>;
+    hash: string | null;
+    raw: QueryState<T>;
+    select: typeof options.select;
+    isEqual: typeof options.isEqual;
+    notify: typeof options.notifyOnChangeProps;
+    snapshot: QueryState<Selected>;
+  } | null>(null);
+  const snapshot = useCallback(() => {
+    const raw =
+      stableKey === null
+        ? store.getServerSnapshot()
+        : store.getSnapshot(stableKey);
+    const previous = cache.current;
+    if (
+      previous?.store === store &&
+      previous.hash === hash &&
+      previous.raw === raw &&
+      previous.select === options.select &&
+      previous.isEqual === options.isEqual &&
+      previous.notify === options.notifyOnChangeProps
+    )
+      return previous.snapshot;
+    const data =
+      raw.data === undefined
+        ? undefined
+        : options.select
+          ? options.select(raw.data)
+          : (raw.data as unknown as Selected);
+    let next: QueryState<Selected> = { ...raw, data };
+    const fields = options.notifyOnChangeProps ?? [
+      "data",
+      "error",
+      "status",
+      "isFetching",
+      "updatedAt",
+    ];
+    if (
+      previous?.store === store &&
+      previous.hash === hash &&
+      fields.every((field) =>
+        field === "data"
+          ? (options.isEqual ?? Object.is)(previous.snapshot.data, next.data)
+          : Object.is(previous.snapshot[field], next[field]),
+      )
+    )
+      next = previous.snapshot;
+    cache.current = {
+      store,
+      hash,
+      raw,
+      select: options.select,
+      isEqual: options.isEqual,
+      notify: options.notifyOnChangeProps,
+      snapshot: next,
+    };
+    return next;
+  }, [
+    store,
+    stableKey,
+    hash,
+    options.select,
+    options.isEqual,
+    options.notifyOnChangeProps,
+  ]);
+  const server = useCallback(
+    () => store.getServerSnapshot() as unknown as QueryState<Selected>,
+    [store],
   );
-  const state = useSyncExternalStore(
-    subscribe,
-    snapshot,
-    store.getServerSnapshot,
+  const state = useSyncExternalStore(subscribe, snapshot, server);
+  const previousData = useRef<{
+    store: QueryStore<T, Key>;
+    data: Selected;
+  } | null>(null);
+  const isPreviousData = !!(
+    options.keepPreviousData &&
+    stableKey !== null &&
+    state.data === undefined &&
+    previousData.current?.store === store
   );
+  const data = isPreviousData ? previousData.current!.data : state.data;
+  useEffect(() => {
+    if (stableKey === null || previousData.current?.store !== store)
+      previousData.current = null;
+    if (stableKey !== null && state.data !== undefined)
+      previousData.current = { store, data: state.data };
+  }, [store, stableKey, state.data]);
   const refetch = useCallback(
     () =>
-      key === null
+      stableKey === null
         ? Promise.reject(new Error("Query key is null"))
-        : store.fetch(key, true),
-    [store, key],
+        : store.fetch(stableKey, true),
+    [store, stableKey],
   );
   const invalidate = useCallback(() => {
-    if (key !== null) store.invalidate(key);
-  }, [store, key]);
+    if (stableKey !== null) store.invalidate(stableKey);
+  }, [store, stableKey]);
   const setData = useCallback(
     (value: T | ((previous: T | undefined) => T)) => {
-      if (key !== null) store.setData(key, value);
+      if (stableKey !== null) store.setData(stableKey, value);
     },
-    [store, key],
+    [store, stableKey],
   );
   const cancel = useCallback(() => {
-    if (key !== null) store.cancel(key);
-  }, [store, key]);
-  return { ...state, refetch, invalidate, setData, cancel };
+    if (stableKey !== null) store.cancel(stableKey);
+  }, [store, stableKey]);
+  return {
+    ...state,
+    data,
+    isPreviousData,
+    refetch,
+    invalidate,
+    setData,
+    cancel,
+  };
 }

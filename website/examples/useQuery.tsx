@@ -53,6 +53,89 @@ function Case2() {
     </>
   );
 }
+
+function Enhanced1() {
+  const [page, setPage] = React.useState(1);
+  const [store] = React.useState(() =>
+    createQueryStore<string, readonly ["articles", { page: number }]>(
+      async ({ signal }, [, params]) => {
+        await delay(signal, 600);
+        return `第 ${params.page} 页数据`;
+      },
+      { staleTime: Infinity },
+    ),
+  );
+  const q = useQuery(store, ["articles", { page }], { keepPreviousData: true });
+  return (
+    <>
+      <button disabled={q.isFetching} onClick={() => setPage((p) => p + 1)}>
+        查询下一页
+      </button>
+      <button onClick={() => store.invalidate(["articles"], { exact: false })}>
+        刷新文章前缀
+      </button>
+      <output>
+        {q.data ?? "首次加载"} ·{" "}
+        {q.isPreviousData ? "保留前页" : q.isFetching ? "刷新中" : "当前页"}
+      </output>
+    </>
+  );
+}
+
+const countSelector = (value: { count: number; note: string }) => value.count;
+const SelectedCount = React.memo(function SelectedCount({
+  store,
+}: {
+  store: ReturnType<typeof createQueryStore<{ count: number; note: string }>>;
+}) {
+  const renders = React.useRef(0);
+  renders.current++;
+  const q = useQuery(store, "stats", {
+    enabled: false,
+    select: countSelector,
+    notifyOnChangeProps: ["data"],
+  });
+  return (
+    <output>
+      计数 {q.data ?? 0} · 渲染 {renders.current}
+    </output>
+  );
+});
+function Enhanced2() {
+  const [store] = React.useState(() => {
+    const s = createQueryStore(async () => ({ count: 0, note: "初始" }));
+    s.setData("stats", { count: 0, note: "初始" });
+    return s;
+  });
+  const q = useQuery(store, "stats", { enabled: false });
+  return (
+    <>
+      <button
+        onClick={() =>
+          q.setData((p) => ({
+            count: p?.count ?? 0,
+            note: `备注 ${Date.now()}`,
+          }))
+        }
+      >
+        仅修改备注
+      </button>
+      <button
+        onClick={() =>
+          q.setData((p) => ({
+            count: (p?.count ?? 0) + 1,
+            note: p?.note ?? "",
+          }))
+        }
+      >
+        增加订阅计数
+      </button>
+      <SelectedCount store={store} />
+      <p>{q.data?.note}</p>
+    </>
+  );
+}
+
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -67,6 +150,18 @@ export default function Examples() {
         description="enabled 为 false 时不自动请求；失败后显式重试，并可取消正在进行的请求。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        title="结构键与分页保留"
+        description="用数组和对象描述缓存键，切页时保留前页数据，并可按 articles 前缀刷新全部已有页。"
+      >
+        <Enhanced1 />
+      </Scenario>
+      <Scenario
+        title="选择数据与隔离订阅"
+        description="两个订阅者共用缓存，计数组件只订阅 count；修改备注不会重绘该组件。"
+      >
+        <Enhanced2 />
       </Scenario>
     </div>
   );

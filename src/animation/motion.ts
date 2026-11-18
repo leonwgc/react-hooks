@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type TransitionEvent,
+  type AnimationEvent,
+} from "react";
 import { useMemoizedFn } from "../state/index.js";
 import { useReducedMotion } from "./index.js";
 export interface SpringOptions {
@@ -118,13 +124,21 @@ export function useSpring(target: number, options: SpringOptions = {}) {
   return { ...state, stop, finish, restart };
 }
 export type TransitionPhase = "unmounted" | "entering" | "entered" | "exiting";
+export interface TransitionStateOptions {
+  enterDuration?: number;
+  exitDuration?: number;
+  appear?: boolean;
+  endEvent?: "transitionend" | "animationend";
+  propertyName?: string;
+  animationName?: string;
+  onEnter?: () => void;
+  onEntered?: () => void;
+  onExit?: () => void;
+  onExited?: () => void;
+}
 export function useTransitionState(
   open: boolean,
-  options: {
-    enterDuration?: number;
-    exitDuration?: number;
-    appear?: boolean;
-  } = {},
+  options: TransitionStateOptions = {},
 ) {
   const reduced = useReducedMotion();
   const duration = (value: number | undefined) =>
@@ -135,22 +149,77 @@ export function useTransitionState(
     open ? (options.appear ? "entering" : "entered") : "unmounted",
   );
   const latest = useRef(phase);
-  latest.current = phase;
-  useEffect(() => {
+  const active = useRef<{
+    open: boolean;
+    timer?: ReturnType<typeof setTimeout>;
+  } | null>(null);
+  const initial = useRef(true);
+  const change = (next: TransitionPhase) => {
+    latest.current = next;
+    setPhase(next);
+  };
+  const complete = useMemoizedFn(() => {
+    const operation = active.current;
+    if (!operation || operation.open !== open) return;
+    clearTimeout(operation.timer);
+    active.current = null;
+    change(open ? "entered" : "unmounted");
+    if (open) options.onEntered?.();
+    else options.onExited?.();
+  });
+  const start = useMemoizedFn(() => {
+    const first = initial.current;
+    initial.current = false;
     if (
       (open && latest.current === "entered") ||
       (!open && latest.current === "unmounted")
     )
       return;
-    const next = open ? "entered" : "unmounted";
-    const wait = open ? enter : exit;
-    if (wait === 0) {
-      setPhase(next);
-      return;
+    const next = open ? "entering" : "exiting";
+    const enteringPhase = latest.current !== next || first;
+    active.current = { open };
+    change(next);
+    if (enteringPhase) {
+      if (open) options.onEnter?.();
+      else options.onExit?.();
     }
-    setPhase(open ? "entering" : "exiting");
-    const timer = setTimeout(() => setPhase(next), wait);
-    return () => clearTimeout(timer);
-  }, [open, enter, exit]);
-  return { phase, mounted: phase !== "unmounted", visible: open };
+    const wait = open ? enter : exit;
+    if (wait === 0) complete();
+    else if (active.current) active.current.timer = setTimeout(complete, wait);
+  });
+  useEffect(() => {
+    start();
+    return () => {
+      clearTimeout(active.current?.timer);
+      active.current = null;
+    };
+  }, [open, enter, exit, start]);
+  const onTransitionEnd = useMemoizedFn(
+    (event: TransitionEvent<HTMLElement>) => {
+      if (
+        (options.endEvent ?? "transitionend") !== "transitionend" ||
+        event.target !== event.currentTarget ||
+        (options.propertyName !== undefined &&
+          event.propertyName !== options.propertyName)
+      )
+        return;
+      complete();
+    },
+  );
+  const onAnimationEnd = useMemoizedFn((event: AnimationEvent<HTMLElement>) => {
+    if (
+      options.endEvent !== "animationend" ||
+      event.target !== event.currentTarget ||
+      (options.animationName !== undefined &&
+        event.animationName !== options.animationName)
+    )
+      return;
+    complete();
+  });
+  return {
+    phase,
+    mounted: phase !== "unmounted",
+    visible: open,
+    bind: { onTransitionEnd, onAnimationEnd },
+  };
 }

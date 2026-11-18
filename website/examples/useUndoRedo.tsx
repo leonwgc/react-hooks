@@ -37,6 +37,70 @@ function Case2() {
     </>
   );
 }
+
+function Enhanced1() {
+  const h = useUndoRedo("", { mergeWindow: 800 });
+  return (
+    <>
+      <label>
+        合并输入
+        <textarea
+          value={h.value}
+          onChange={(e) =>
+            h.set(e.target.value, { group: "text", label: "编辑正文" })
+          }
+        />
+      </label>
+      <button disabled={!h.canUndo} onClick={h.undo}>
+        撤销连续输入
+      </button>
+      <button disabled={!h.canRedo} onClick={h.redo}>
+        重做连续输入
+      </button>
+      <output>
+        历史 {h.past.length} · 撤销 {h.undoLabel ?? "无"} · 重做{" "}
+        {h.redoLabel ?? "无"}
+      </output>
+    </>
+  );
+}
+
+function Enhanced2() {
+  const h = useUndoRedo({ title: "原始标题", size: 12 });
+  return (
+    <>
+      <button
+        disabled={h.inTransaction}
+        onClick={() => h.beginTransaction("调整卡片")}
+      >
+        开始编辑事务
+      </button>
+      <button
+        disabled={!h.inTransaction}
+        onClick={() => {
+          h.set((v) => ({ ...v, title: "新版标题" }));
+          h.set((v) => ({ ...v, size: v.size + 2 }));
+        }}
+      >
+        修改标题和字号
+      </button>
+      <button disabled={!h.inTransaction} onClick={h.commitTransaction}>
+        提交编辑事务
+      </button>
+      <button disabled={!h.inTransaction} onClick={h.rollbackTransaction}>
+        回滚编辑事务
+      </button>
+      <button disabled={!h.canUndo} onClick={h.undo}>
+        撤销整个事务
+      </button>
+      <output>
+        {h.value.title} · {h.value.size}px ·{" "}
+        {h.inTransaction ? "编辑中" : "已提交"} · 历史 {h.past.length}
+      </output>
+    </>
+  );
+}
+
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -51,6 +115,18 @@ export default function Examples() {
         description="replace 不新增撤销步骤；clear 保留当前值并清空历史。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        title="连续输入合并与标签"
+        description="800ms 内的连续输入归为一次撤销，停顿或撤销会打断合并；显示下一次操作标签。"
+      >
+        <Enhanced1 />
+      </Scenario>
+      <Scenario
+        title="事务提交与回滚"
+        description="事务中修改多个属性，提交只生成一个撤销步骤；回滚恢复事务前的值和历史。"
+      >
+        <Enhanced2 />
       </Scenario>
     </div>
   );

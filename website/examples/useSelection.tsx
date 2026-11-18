@@ -43,6 +43,62 @@ function Case2() {
     </>
   );
 }
+
+function Enhanced1() {
+  const keys = ["A", "B", "C", "D", "E"],
+    s = useSelection(keys, { disabledKeys: ["C"] });
+  return (
+    <>
+      <div className="demo-row">
+        {keys.map((key) => (
+          <button
+            key={key}
+            disabled={s.isDisabled(key)}
+            aria-pressed={s.isSelected(key)}
+            onClick={(e) => s.toggle(key, { range: e.shiftKey })}
+          >
+            {key}
+          </button>
+        ))}
+      </div>
+      <button onClick={() => s.selectRange("A", "E")}>选择 A 到 E</button>
+      <button onClick={s.clear}>清空范围选择</button>
+      <output>已选 {s.selectedKeys.join(",") || "无"}</output>
+    </>
+  );
+}
+
+function Enhanced2() {
+  const [limit, setLimit] = React.useState(2),
+    [disable, setDisable] = React.useState(false);
+  const s = useSelection(["A", "B", "C", "D"], {
+    maxSelected: limit,
+    disabledKeys: disable ? ["A"] : [],
+  });
+  return (
+    <>
+      <label>
+        最多选择
+        <select
+          value={limit}
+          onChange={(e) => setLimit(Number(e.target.value))}
+        >
+          {[0, 1, 2, 4].map((n) => (
+            <option key={n}>{n}</option>
+          ))}
+        </select>
+      </label>
+      <button onClick={s.selectAll}>按上限全选</button>
+      <button onClick={() => setDisable((v) => !v)}>切换禁用 A</button>
+      <button onClick={s.clear}>清空限额选择</button>
+      <output>
+        {s.selectedKeys.join(",") || "无"} ·{" "}
+        {s.isAtLimit ? "已到上限" : "可继续选择"}
+      </output>
+    </>
+  );
+}
+
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -57,6 +113,18 @@ export default function Examples() {
         description="preserve 保留跨页选择，但 resetKey 变化会清空旧查询的选择。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        title="Shift 范围与禁用项"
+        description="先点 A，再按住 Shift 点 E，范围选中跳过禁用的 C；也可用按钮执行相同范围选择。"
+      >
+        <Enhanced1 />
+      </Scenario>
+      <Scenario
+        title="选择上限与动态裁剪"
+        description="设置最多可选数量，批量选择遵守上限；缩小上限或禁用已选项会自动裁剪。"
+      >
+        <Enhanced2 />
       </Scenario>
     </div>
   );

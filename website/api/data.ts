@@ -11,7 +11,8 @@ export const requestValues = [
     "unknown",
     "最近一次终止请求的错误；初始 undefined，新请求开始时清空，AbortError 不作为失败展示。",
   ),
-  v("loading", "boolean", "包含服务执行和重试等待的完整请求周期；初始 false。"),
+  v("loading", "boolean", "请求周期中的加载状态；初始 false。"),
+  v("fetching", "boolean", "实际请求及重试等待状态；初始 false。"),
   v(
     "retryCount",
     "number",
@@ -52,7 +53,7 @@ export const requestMethods = [
 ];
 export const dataDocs = {
   useRequest: {
-    source,
+    source: "src/data/index.ts",
     generics: [
       {
         name: "T",
@@ -71,124 +72,243 @@ export const dataDocs = {
     signature:
       "useRequest<T, Args extends unknown[] = []>(\n  service: RequestService<T, Args>,\n  options?: RequestOptions<T, Args>,\n)",
     parameters: [
-      p(
-        "service",
-        "RequestService<T, Args>",
-        "必填",
-        "服务函数；接收取消信号和 run 传入的参数。T 为成功数据，Args 为参数元组，例如 [id: string]。",
-      ),
-      options("RequestOptions<T, Args>", false),
+      {
+        name: "service",
+        type: "RequestService<T, Args>",
+        defaultValue: "必填",
+        description:
+          "服务函数；接收取消信号和 run 传入的参数。T 为成功数据，Args 为参数元组，例如 [id: string]。",
+      },
+      {
+        name: "options",
+        type: "RequestOptions<T, Args>",
+        defaultValue: "{}",
+        description: "配置对象，字段见下表。",
+      },
     ],
     sections: [
       {
         title: "options · 执行与数据",
         rows: [
-          p(
-            "manual",
-            "boolean",
-            "true",
-            "false 时挂载自动执行；必须同时传 defaultParams，即使无参数也传 []。",
-          ),
-          p(
-            "defaultParams",
-            "Args",
-            "undefined",
-            "自动请求初始参数，也可供首次 refresh 和事件刷新使用；后续变化不会自动重跑。",
-          ),
-          p(
-            "initialData",
-            "T",
-            "undefined",
-            "首次 data 值，后续变化不自动覆盖 data。",
-          ),
-          p(
-            "onSuccess",
-            "(data: T, args: Args) => void",
-            "undefined",
-            "当前有效请求成功后调用一次；不针对每次尝试单独触发。",
-          ),
-          p(
-            "onError",
-            "(error: unknown, args: Args) => void",
-            "undefined",
-            "重试结束后的最终失败触发；取消或过期请求不触发。",
-          ),
+          {
+            name: "manual",
+            type: "boolean",
+            defaultValue: "true",
+            description:
+              "false 时挂载自动执行；必须同时传 defaultParams，即使无参数也传 []。",
+          },
+          {
+            name: "defaultParams",
+            type: "Args",
+            defaultValue: "undefined",
+            description:
+              "自动请求初始参数，也可供首次 refresh 和事件刷新使用；后续变化不会自动重跑。",
+          },
+          {
+            name: "initialData",
+            type: "T",
+            defaultValue: "undefined",
+            description: "首次 data 值，后续变化不自动覆盖 data。",
+          },
+          {
+            name: "onSuccess",
+            type: "(data: T, args: Args) => void",
+            defaultValue: "undefined",
+            description: "当前有效请求成功后调用一次；不针对每次尝试单独触发。",
+          },
+          {
+            name: "onError",
+            type: "(error: unknown, args: Args) => void",
+            defaultValue: "undefined",
+            description: "重试结束后的最终失败触发；取消或过期请求不触发。",
+          },
+          {
+            name: "ready",
+            type: "boolean",
+            defaultValue: "true",
+            description:
+              "false 阻止手动与自动请求，并取消当前请求；runAsync 以 RequestNotReadyError 拒绝。恢复 true 时仅 manual: false 自动执行。",
+          },
+          {
+            name: "refreshDeps",
+            type: "React.DependencyList",
+            defaultValue: "[]",
+            description:
+              "逐项 Object.is 比较；变化时仅 manual: false 自动重跑，使用最新 defaultParams。请避免每次创建新对象作为依赖。",
+          },
+          {
+            name: "loadingDelay",
+            type: "number",
+            defaultValue: "0",
+            description:
+              "延迟展示 loading 的毫秒数；快速完成时不闪烁。fetching 始终立即反映请求生命周期；负值或非有限值按 0。",
+          },
+          {
+            name: "onBefore",
+            type: "(args: Args) => void",
+            defaultValue: "undefined",
+            description:
+              "有效请求开始时调用一次，重试不重复调用。ready: false 不触发。",
+          },
+          {
+            name: "onFinally",
+            type: "(data: T | undefined, error: unknown, args: Args) => void",
+            defaultValue: "undefined",
+            description:
+              "当前有效请求成功或最终失败后调用一次；成功时 error 为 undefined，失败时 data 为 undefined。取消、被替换、卸载不触发。",
+          },
         ],
       },
       {
         title: "options · 重试与超时",
         rows: [
-          p(
-            "retry",
-            "number",
-            "0",
-            "首次失败后最多额外尝试次数；有限非负整数，向下取整。默认不重试。",
-          ),
-          p(
-            "retryDelay",
-            "number | ((retryNumber: number, error: unknown) => number)",
-            "指数退避",
-            "等待毫秒；retryNumber 从 1 起。默认 1000 × 2^(n−1)，最大 30000。自定义负值按 0，非有限值回退 1000。",
-          ),
-          p(
-            "shouldRetry",
-            "(error: unknown, retryNumber: number, args: Args) => boolean",
-            "undefined",
-            "在次数额度内判断是否继续；返回 false 结束。AbortError 始终不重试。",
-          ),
-          p(
-            "timeout",
-            "number",
-            "undefined",
-            "每次尝试的超时毫秒，> 0 启用；不包含退避等待。超时以 RequestTimeoutError 拒绝，并取消该次 signal。",
-          ),
+          {
+            name: "retry",
+            type: "number",
+            defaultValue: "0",
+            description:
+              "首次失败后最多额外尝试次数；有限非负整数，向下取整。默认不重试。",
+          },
+          {
+            name: "retryDelay",
+            type: "number | ((retryNumber: number, error: unknown) => number)",
+            defaultValue: "指数退避",
+            description:
+              "等待毫秒；retryNumber 从 1 起。默认 1000 × 2^(n−1)，最大 30000。自定义负值按 0，非有限值回退 1000。",
+          },
+          {
+            name: "shouldRetry",
+            type: "(error: unknown, retryNumber: number, args: Args) => boolean",
+            defaultValue: "undefined",
+            description:
+              "在次数额度内判断是否继续；返回 false 结束。AbortError 始终不重试。",
+          },
+          {
+            name: "timeout",
+            type: "number",
+            defaultValue: "undefined",
+            description:
+              "每次尝试的超时毫秒，> 0 启用；不包含退避等待。超时以 RequestTimeoutError 拒绝，并取消该次 signal。",
+          },
         ],
       },
       {
         title: "options · 轮询与自动刷新",
         rows: [
-          p(
-            "pollingInterval",
-            "number",
-            "undefined",
-            "> 0 开启轮询；每轮完成后等待该毫秒数再刷新，不与该轮请求重叠。",
-          ),
-          p(
-            "pollingWhenHidden",
-            "boolean",
-            "true",
-            "false 时页面隐藏后暂停后续轮询；不取消已经运行的请求。",
-          ),
-          p(
-            "refreshOnFocus",
-            "boolean",
-            "false",
-            "窗口获得焦点或文档恢复可见时刷新。",
-          ),
-          p(
-            "refreshOnReconnect",
-            "boolean",
-            "false",
-            "收到 window.online 时刷新；不代表服务已恢复可用。",
-          ),
-          p(
-            "refreshThrottleInterval",
-            "number",
-            "1000",
-            "聚焦/网络刷新共用的最小间隔毫秒；不节流手动 run/refresh 或轮询。",
-          ),
+          {
+            name: "pollingInterval",
+            type: "number",
+            defaultValue: "undefined",
+            description:
+              "> 0 开启轮询；每轮完成后等待该毫秒数再刷新，不与该轮请求重叠。",
+          },
+          {
+            name: "pollingWhenHidden",
+            type: "boolean",
+            defaultValue: "true",
+            description:
+              "false 时页面隐藏后暂停后续轮询；不取消已经运行的请求。",
+          },
+          {
+            name: "refreshOnFocus",
+            type: "boolean",
+            defaultValue: "false",
+            description: "窗口获得焦点或文档恢复可见时刷新。",
+          },
+          {
+            name: "refreshOnReconnect",
+            type: "boolean",
+            defaultValue: "false",
+            description: "收到 window.online 时刷新；不代表服务已恢复可用。",
+          },
+          {
+            name: "refreshThrottleInterval",
+            type: "number",
+            defaultValue: "1000",
+            description:
+              "聚焦/网络刷新共用的最小间隔毫秒；不节流手动 run/refresh 或轮询。",
+          },
         ],
       },
     ],
-    returns: requestValues,
-    methods: requestMethods,
+    returns: [
+      {
+        name: "data",
+        type: "T | undefined",
+        description:
+          "最近一次成功数据，初始为 initialData；重跑、失败或取消不会清空已有数据。",
+      },
+      {
+        name: "error",
+        type: "unknown",
+        description:
+          "最近一次终止请求的错误；初始 undefined，新请求开始时清空，AbortError 不作为失败展示。",
+      },
+      {
+        name: "loading",
+        type: "boolean",
+        description:
+          "loadingDelay 到期后显示加载状态；请求完成或取消立即恢复 false，初始 false。",
+      },
+      {
+        name: "retryCount",
+        type: "number",
+        description:
+          "本轮已安排的重试次数，初始及新一轮开始时为 0；首次请求不计入。",
+      },
+      {
+        name: "fetching",
+        type: "boolean",
+        description:
+          "包含执行及重试等待的真实请求状态；不受 loadingDelay 影响，初始 false。",
+      },
+    ],
+    methods: [
+      {
+        name: "run",
+        type: "(...args: Args) => void",
+        description:
+          "开始新一轮请求并取消旧一轮；拒绝被内部处理，通过 error 读取失败。",
+      },
+      {
+        name: "runAsync",
+        type: "(...args: Args) => Promise<T>",
+        description:
+          "与 run 相同，但返回成功数据；最终失败、超时或取消会拒绝，需要 catch。",
+      },
+      {
+        name: "refresh",
+        type: "() => void",
+        description:
+          "使用最近 run 参数或 defaultParams 重跑；无参数记录时不发请求。",
+      },
+      {
+        name: "refreshAsync",
+        type: "() => Promise<T>",
+        description:
+          '返回刷新结果；没有可用参数时拒绝 Error("No previous request parameters.")。',
+      },
+      {
+        name: "cancel",
+        type: "() => void",
+        description:
+          "取消当前 signal、重试等待和轮询，停止自动刷新并将 loading 置 false；之后 run/refresh 可重新启动。",
+      },
+      {
+        name: "mutate",
+        type: "(next: T | ((previous: T | undefined) => T)) => void",
+        description:
+          "只更新本地 data，不发请求，不取消进行中的请求；后续成功响应仍可覆盖。",
+      },
+    ],
     types:
-      "interface RequestContext { signal: AbortSignal }\ntype RequestService<T, Args extends unknown[]> =\n  (context: RequestContext, ...args: Args) => Promise<T>;\n\n// manual: false 必须同时提供 defaultParams: Args。\n// 可从包入口导入 RequestOptions、RequestService、RequestContext。\ndeclare class RequestTimeoutError extends Error {\n  constructor(timeout: number);\n  timeout: number; // 本次尝试的超时毫秒\n}",
+      'interface RequestContext { signal: AbortSignal }\ntype RequestService<T, Args extends unknown[]> =\n  (context: RequestContext, ...args: Args) => Promise<T>;\n\n// manual: false 必须同时提供 defaultParams: Args。\n// 可从包入口导入 RequestOptions、RequestService、RequestContext。\ndeclare class RequestTimeoutError extends Error {\n  constructor(timeout: number);\n  timeout: number; // 本次尝试的超时毫秒\n}\n\ndeclare class RequestNotReadyError extends Error {\n  constructor(); // name 为 "NotReadyError"\n}',
     notes: [
       "默认手动执行；manual: false 的挂载请求在 React Strict Mode 开发环境可能启动两轮，前一轮会取消。写操作由用户事件触发，并按业务保证幂等性。",
       "新调用、cancel 和卸载使旧请求失效，旧结果不会覆盖新状态。服务应透传 signal 到 fetch；Hook 不能回滚已经发生的服务端写入。",
       "自动刷新需要可用参数，且跳过进行中、页面隐藏或已 cancel 的状态；manual: true 配合 defaultParams 也可以被已启用的事件刷新触发。",
       "轮询在成功和最终失败后都可能继续；onSuccess/onError 请自行处理其内部异常。这里只做实例内请求管理，不提供共享缓存、请求合并或乐观更新。",
+      "ready 关闭会终止当前周期。refreshDeps 不改变手动模式；ready 和依赖同时变化只按最终配置自动执行。生命周期回调应自行处理内部异常；onBefore 抛错会作为本轮失败处理。",
     ],
   },
   usePagination: {
@@ -279,7 +399,7 @@ export const dataDocs = {
     ],
   },
   useSelection: {
-    source,
+    source: "src/data/index.ts",
     generics: [
       {
         name: "Key",
@@ -289,55 +409,128 @@ export const dataDocs = {
       },
     ],
     signature:
-      "useSelection<Key extends string | number>(\n  keys: readonly Key[],\n  options?: {\n    preserve?: boolean;\n    resetKey?: unknown;\n  },\n)",
+      "useSelection<Key extends string | number>(keys: readonly Key[], options?: SelectionOptions<Key>)",
     parameters: [
-      p(
-        "keys",
-        "readonly Key[]",
-        "必填",
-        "当前页可选项的唯一稳定 ID，Key 为 string 或 number。",
-      ),
-      options("{\n    preserve?: boolean;\n    resetKey?: unknown;\n}", false),
+      {
+        name: "keys",
+        type: "readonly Key[]",
+        defaultValue: "必填",
+        description: "当前页可选项的唯一稳定 ID，Key 为 string 或 number。",
+      },
+      {
+        name: "options",
+        type: "SelectionOptions<Key>",
+        defaultValue: "{}",
+        description: "配置对象，字段见下表。",
+      },
     ],
     sections: [
       {
         title: "options",
         rows: [
-          p(
-            "preserve",
-            "boolean",
-            "false",
-            "false 时只保留当前 keys 中的选中项；true 时保留跨页选中。",
-          ),
-          p(
-            "resetKey",
-            "unknown",
-            "undefined",
-            "按内置深比较变化时清空全部选择；适合使用已提交的筛选条件。",
-          ),
+          {
+            name: "preserve",
+            type: "boolean",
+            defaultValue: "false",
+            description:
+              "false 时只保留当前 keys 中的选中项；true 时保留跨页选中。",
+          },
+          {
+            name: "resetKey",
+            type: "unknown",
+            defaultValue: "undefined",
+            description:
+              "按内置深比较变化时清空全部选择；适合使用已提交的筛选条件。",
+          },
+          {
+            name: "disabledKeys",
+            type: "readonly Key[]",
+            defaultValue: "[]",
+            description:
+              "禁止选中的 ID；已有选择会被移除，范围选中与全选跳过这些项。",
+          },
+          {
+            name: "maxSelected",
+            type: "number",
+            defaultValue: "Infinity",
+            description:
+              "全部选中项（包括跨页保留）上限；有限值向下取整且最少 0，非有限值视为无限。超限按已有插入顺序截断。",
+          },
         ],
       },
     ],
     returns: [
-      v("selected", "Set<Key>", "当前选中集合的快照，请勿直接修改。"),
-      v("selectedKeys", "Key[]", "选中 ID 数组，含 preserve 保留的其他页 ID。"),
-      v("allSelected", "boolean", "当前 keys 非空且全部已选中。"),
-      v(
-        "partiallySelected",
-        "boolean",
-        "当前页有选中但未全选，可绑定原生 checkbox.indeterminate。",
-      ),
+      {
+        name: "selected",
+        type: "Set<Key>",
+        description: "当前选中集合的快照，请勿直接修改。",
+      },
+      {
+        name: "selectedKeys",
+        type: "Key[]",
+        description: "选中 ID 数组，含 preserve 保留的其他页 ID。",
+      },
+      {
+        name: "allSelected",
+        type: "boolean",
+        description: "当前未禁用 keys 非空且全部已选中；禁用项不影响全选判断。",
+      },
+      {
+        name: "partiallySelected",
+        type: "boolean",
+        description:
+          "当前页有选中但未全选，可绑定原生 checkbox.indeterminate。",
+      },
+      {
+        name: "isAtLimit",
+        type: "boolean",
+        description: "是否达到选择上限；上限为 0 时为 true。",
+      },
     ],
     methods: [
-      v("isSelected", "(key: Key) => boolean", "查询某个 ID 是否选中。"),
-      v("toggle", "(key: Key) => void", "切换单个 ID。"),
-      v("selectAll", "() => void", "将当前 keys 加入选择，保留其他已选项。"),
-      v(
-        "toggleAll",
-        "() => void",
-        "当前页已全选则移除本页选择，否则选中本页。",
-      ),
-      v("clear", "() => void", "清空所有页选择。"),
+      {
+        name: "isSelected",
+        type: "(key: Key) => boolean",
+        description: "查询某个 ID 是否选中。",
+      },
+      {
+        name: "toggle",
+        type: "(key: Key, options?: { range?: boolean }) => void",
+        description:
+          "单选切换并记录范围锚点；range: true 从上次普通 toggle 的锚点到当前 key，按目标项当前状态选中或取消整个范围。禁用项不处理；preserve: true 时允许切换非当前页 ID。",
+      },
+      {
+        name: "selectAll",
+        type: "() => void",
+        description: "按 keys 顺序加入未禁用项，保留跨页选择并遵守上限。",
+      },
+      {
+        name: "toggleAll",
+        type: "() => void",
+        description: "当前页已全选则移除本页选择，否则选中本页。",
+      },
+      {
+        name: "clear",
+        type: "() => void",
+        description: "清空所有页选择。",
+      },
+      {
+        name: "isDisabled",
+        type: "(key: Key) => boolean",
+        description: "查询 ID 是否在 disabledKeys 中。",
+      },
+      {
+        name: "selectRange",
+        type: "(from: Key, to: Key, checked?: boolean) => void",
+        description:
+          "按当前 keys 顺序处理含两端的区间；checked 默认 true，false 取消范围。跳过禁用项，选中时遵守上限；端点不存在则无操作。",
+      },
+    ],
+    types:
+      "interface SelectionOptions<Key> {\n  preserve?: boolean;\n  resetKey?: unknown;\n  disabledKeys?: readonly Key[];\n  maxSelected?: number;\n}",
+    notes: [
+      "Shift 交互需显式传 toggle(key, { range: event.shiftKey })，Hook 不全局监听键盘。clear 或 resetKey 变化清除范围锚点。",
+      "selected 是不可变使用的 Set 快照。上限变小、禁用项变化会裁剪已有选择；不提供超限回调。",
     ],
   },
   useTable: {

@@ -9,9 +9,27 @@ import {
 } from "react";
 import { useLatest, useMemoizedFn } from "../state/index.js";
 import { equal } from "../internal/utils.js";
-import { getPath, setPath, type FieldPath, type FieldValue } from "./path.js";
+import {
+  getPath,
+  setPath,
+  unsetPath,
+  type FieldPath,
+  type FieldValue,
+} from "./path.js";
 export type { FieldPath, FieldValue } from "./path.js";
 export type FormErrors<T> = Partial<Record<FieldPath<T>, string>>;
+type FieldNode = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+interface ArrayAdapter {
+  commit: (
+    path: string,
+    values: unknown[],
+    indices: readonly (number | null)[],
+  ) => void;
+  version: (path: string) => number;
+}
+const arrayAdapters = new WeakMap<object, ArrayAdapter>();
+const under = (path: string, parent: string) =>
+  path === parent || path.startsWith(`${parent}.`);
 type ValidationResult = string | undefined | Promise<string | undefined>;
 export type FormValidators<T> = {
   [K in keyof T]?: (value: T[K], values: T) => ValidationResult;
@@ -23,6 +41,8 @@ export type FormValidators<T> = {
 }>;
 export interface FormOptions<T extends object> {
   initialValues: T;
+  shouldUnregister?: boolean;
+  shouldFocusError?: boolean;
   validators?: FormValidators<NoInfer<T>>;
   mode?: "onSubmit" | "onBlur" | "onChange";
   revalidateMode?: "onBlur" | "onChange";
@@ -36,10 +56,34 @@ export function useForm<T extends object>(options: FormOptions<T>) {
   const [values, updateValues] = useState(options.initialValues);
   const current = useLatest(values);
   const baseline = useRef(options.initialValues);
-  const [errors, updateErrors] = useState<FormErrors<T>>({});
-  const [touched, setTouched] = useState<
+  const [errors, setErrorsState] = useState<FormErrors<T>>({});
+  const errorsRef = useRef(errors);
+  const updateErrors = useMemoizedFn(
+    (next: FormErrors<T> | ((previous: FormErrors<T>) => FormErrors<T>)) => {
+      const result =
+        typeof next === "function" ? next(errorsRef.current) : next;
+      errorsRef.current = result;
+      setErrorsState(result);
+    },
+  );
+  const [touched, setTouchedState] = useState<
     Partial<Record<FieldPath<T>, boolean>>
   >({});
+  const touchedRef = useRef(touched);
+  const setTouched = useMemoizedFn(
+    (next: typeof touched | ((previous: typeof touched) => typeof touched)) => {
+      const result =
+        typeof next === "function" ? next(touchedRef.current) : next;
+      touchedRef.current = result;
+      setTouchedState(result);
+    },
+  );
+  const inactive = useRef(new Set<string>());
+  const nodes = useRef(new Map<string, FieldNode>());
+  const refs = useRef(new Map<string, (node: FieldNode | null) => void>());
+  const fieldResets = useRef(new Map<string, number>());
+  const excluded = (path: string) =>
+    [...inactive.current].some((parent) => under(path, parent));
   const [isSubmitting, setSubmitting] = useState(false);
   const [isValidating, setValidating] = useState(false);
   const [submitError, setSubmitError] = useState<unknown>();
@@ -110,7 +154,7 @@ export function useForm<T extends object>(options: FormOptions<T>) {
         );
       const results = await Promise.all(
         checks
-          .filter(([path]) => isSelected(path))
+          .filter(([path]) => isSelected(path) && !excluded(path))
           .map(async ([path, validator]) => {
             try {
               return [
@@ -144,6 +188,8 @@ export function useForm<T extends object>(options: FormOptions<T>) {
         return false;
       }
       const next: FormErrors<T> = { ...schemaErrors };
+      for (const path of Object.keys(next) as FieldPath<T>[])
+        if (excluded(path)) delete next[path];
       results.forEach(([path, message]) => {
         if (message) next[path] = message;
       });
@@ -216,6 +262,7 @@ export function useForm<T extends object>(options: FormOptions<T>) {
   const reset = useMemoizedFn((next: T = baseline.current) => {
     clearTimeout(validationTimer.current);
     pendingPaths.current = new Set();
+    inactive.current.clear();
     baseline.current = next;
     current.current = next;
     revision.current++;
@@ -231,10 +278,119 @@ export function useForm<T extends object>(options: FormOptions<T>) {
     lock.current = null;
     setResetCount((n) => n + 1);
   });
+  const clearFieldMeta = useMemoizedFn(
+    (path: string, keepError = false, keepTouched = false) => {
+      if (!keepError)
+        updateErrors((previous) => {
+          const next = { ...previous };
+          for (const key of Object.keys(next) as FieldPath<T>[])
+            if (under(key, path)) delete next[key];
+          return next;
+        });
+      if (!keepTouched)
+        setTouched((previous) => {
+          const next = { ...previous };
+          for (const key of Object.keys(next) as FieldPath<T>[])
+            if (under(key, path)) delete next[key];
+          return next;
+        });
+    },
+  );
+  const resetField = useMemoizedFn(
+    <P extends FieldPath<T>>(
+      path: P,
+      settings: {
+        defaultValue?: FieldValue<T, P>;
+        keepError?: boolean;
+        keepTouched?: boolean;
+      } = {},
+    ) => {
+      if (Object.prototype.hasOwnProperty.call(settings, "defaultValue"))
+        baseline.current = setPath(
+          baseline.current,
+          path,
+          settings.defaultValue,
+        );
+      clearTimeout(validationTimer.current);
+      validation.current++;
+      revision.current++;
+      pendingPaths.current = new Set();
+      setValidating(false);
+      setSubmitError(undefined);
+      const next = setPath(
+        current.current,
+        path,
+        getPath(baseline.current, path),
+      );
+      current.current = next;
+      updateValues(next);
+      fieldResets.current.set(path, (fieldResets.current.get(path) ?? 0) + 1);
+      clearFieldMeta(path, settings.keepError, settings.keepTouched);
+    },
+  );
+  const unregister = useMemoizedFn(
+    (path: FieldPath<T>, settings: { keepValue?: boolean } = {}) => {
+      inactive.current.add(path);
+      clearTimeout(validationTimer.current);
+      validation.current++;
+      revision.current++;
+      pendingPaths.current = new Set();
+      setValidating(false);
+      clearFieldMeta(path);
+      if (!settings.keepValue) {
+        const next = unsetPath(current.current, path);
+        current.current = next;
+        updateValues(next);
+      }
+    },
+  );
+  const getFieldRef = useMemoizedFn((path: FieldPath<T>) => {
+    let ref = refs.current.get(path);
+    if (!ref) {
+      ref = (node) => {
+        if (node) {
+          nodes.current.set(path, node);
+          for (const parent of inactive.current)
+            if (under(path, parent)) inactive.current.delete(parent);
+        } else {
+          nodes.current.delete(path);
+          queueMicrotask(() => {
+            if (
+              mounted.current &&
+              !nodes.current.has(path) &&
+              config.current.shouldUnregister
+            )
+              unregister(path);
+          });
+        }
+      };
+      refs.current.set(path, ref);
+    }
+    return ref;
+  });
+  const focusField = useMemoizedFn((path: FieldPath<T>) => {
+    const node = nodes.current.get(path);
+    if (
+      !node ||
+      !node.isConnected ||
+      node.disabled ||
+      node.getClientRects().length === 0
+    )
+      return false;
+    node.focus();
+    return document.activeElement === node;
+  });
+  const focusFirstError = useMemoizedFn(() => {
+    const candidates = [...nodes.current]
+      .filter(([path]) => errorsRef.current[path as FieldPath<T>])
+      .sort((a, b) => (a[1].compareDocumentPosition(b[1]) & 2 ? 1 : -1));
+    return candidates.some(([path]) => focusField(path as FieldPath<T>));
+  });
   const register = <P extends FieldPath<T>>(path: P) => {
     const value = getPath(values, path);
     return {
       name: path,
+      ref: getFieldRef(path),
       value:
         typeof value === "string" ||
         (typeof value === "number" && Number.isFinite(value))
@@ -275,8 +431,12 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       const generation = lifecycle.current;
       const promise = (async () => {
         try {
-          if (!(await validate()) || generation !== lifecycle.current)
+          const valid = await validate();
+          if (generation !== lifecycle.current) return false;
+          if (!valid) {
+            if (config.current.shouldFocusError) focusFirstError();
             return false;
+          }
           await callback(current.current);
           return true;
         } catch (error) {
@@ -315,6 +475,51 @@ export function useForm<T extends object>(options: FormOptions<T>) {
         if (validateOn("onBlur")) scheduleValidation(path);
       },
     };
+  const commitArray = useMemoizedFn(
+    (path: string, next: unknown[], indices: readonly (number | null)[]) => {
+      const indexMap = new Map(
+        indices.flatMap((old, index) =>
+          old === null ? [] : [[old, index] as const],
+        ),
+      );
+      const remapKey = (key: string) => {
+        if (!key.startsWith(`${path}.`)) return key;
+        const [head, ...rest] = key.slice(path.length + 1).split(".");
+        const mapped = indexMap.get(Number(head));
+        return mapped === undefined
+          ? null
+          : `${path}.${mapped}${rest.length ? "." + rest.join(".") : ""}`;
+      };
+      const remap = <V>(metadata: Partial<Record<FieldPath<T>, V>>) => {
+        const result: Partial<Record<FieldPath<T>, V>> = {};
+        for (const key of Object.keys(metadata) as FieldPath<T>[]) {
+          // Only an existing array index changes; the validated field suffix is retained.
+          const mapped = remapKey(key) as FieldPath<T> | null;
+          if (mapped !== null) result[mapped] = metadata[key];
+        }
+        return result;
+      };
+      const previousErrors = errorsRef.current,
+        previousTouched = touchedRef.current;
+      inactive.current = new Set(
+        [...inactive.current].flatMap((key) => {
+          const mapped = remapKey(key);
+          return mapped === null ? [] : [mapped];
+        }),
+      );
+      changed(setPath(current.current, path, next), path as FieldPath<T>);
+      updateErrors(remap<string>(previousErrors));
+      setTouched(remap<boolean>(previousTouched));
+    },
+  );
+  arrayAdapters.set(control.current, {
+    commit: commitArray,
+    version: (path) =>
+      [...fieldResets.current].reduce(
+        (sum, [parent, version]) => sum + (under(path, parent) ? version : 0),
+        0,
+      ),
+  });
   useEffect(() => {
     for (const listener of listeners.current) listener();
   }, [values, errors, touched]);
@@ -333,6 +538,11 @@ export function useForm<T extends object>(options: FormOptions<T>) {
     setFieldTouched,
     setFieldError,
     register,
+    resetField,
+    unregister,
+    getFieldRef,
+    focusField,
+    focusFirstError,
     validate,
     handleSubmit,
     reset,
@@ -347,63 +557,93 @@ export function useFieldArray<T extends object, P extends FieldPath<T>>(
   const prefix = useId();
   const sequence = useRef(0);
   const ids = useRef<string[]>([]);
-  const generation = useRef(form.resetCount);
+  const adapter = arrayAdapters.get(form.control)!;
+  const resetVersion = `${form.resetCount}:${adapter.version(name)}`;
+  const generation = useRef(resetVersion);
   const raw = getPath(form.values, name);
   const items: Item[] = Array.isArray(raw) ? raw : [];
-  if (generation.current !== form.resetCount) {
+  if (generation.current !== resetVersion) {
     ids.current = [];
-    generation.current = form.resetCount;
+    generation.current = resetVersion;
   }
   while (ids.current.length < items.length)
     ids.current.push(`${prefix}-${sequence.current++}`);
   ids.current = ids.current.slice(0, items.length);
   const values = useLatest(items);
-  const commit = useMemoizedFn((next: Item[]) => {
+  const commit = (next: Item[], mapping: readonly (number | null)[]) => {
     values.current = next;
-    // Array positions change; clear old indexed metadata rather than attaching it to another row.
-    Object.keys(form.errors)
-      .filter((key) => key.startsWith(`${name}.`))
-      .forEach((key) => form.setFieldError(key as FieldPath<T>, undefined));
-    Object.keys(form.touched)
-      .filter((key) => key.startsWith(`${name}.`))
-      .forEach((key) => form.setFieldTouched(key as FieldPath<T>, false));
-    form.setValues((previous) => setPath(previous, name, next));
-  });
-  const append = useMemoizedFn((item: Item) => {
-    ids.current.push(`${prefix}-${sequence.current++}`);
-    commit([...values.current, item]);
-  });
-  const remove = useMemoizedFn((index: number) => {
-    if (!Number.isInteger(index) || index < 0 || index >= values.current.length)
+    adapter.commit(name, next, mapping);
+  };
+  const insert = useMemoizedFn((index: number, item: Item) => {
+    if (!Number.isInteger(index) || index < 0 || index > values.current.length)
       return;
+    const next = [...values.current],
+      mapping: (number | null)[] = next.map((_, i) => i);
+    next.splice(index, 0, item);
+    mapping.splice(index, 0, null);
+    ids.current.splice(index, 0, `${prefix}-${sequence.current++}`);
+    commit(next, mapping);
+  });
+  const append = useMemoizedFn((item: Item) =>
+    insert(values.current.length, item),
+  );
+  const prepend = useMemoizedFn((item: Item) => insert(0, item));
+  const valid = (index: number) =>
+    Number.isInteger(index) && index >= 0 && index < values.current.length;
+  const remove = useMemoizedFn((index: number) => {
+    if (!valid(index)) return;
+    const mapping = values.current.map((_, i) => i).filter((i) => i !== index);
     ids.current.splice(index, 1);
-    commit(values.current.filter((_, position) => position !== index));
+    commit(
+      mapping.map((i) => values.current[i]),
+      mapping,
+    );
   });
   const move = useMemoizedFn((from: number, to: number) => {
-    if (
-      ![from, to].every(
-        (index) =>
-          Number.isInteger(index) &&
-          index >= 0 &&
-          index < values.current.length,
-      ) ||
-      from === to
-    )
-      return;
-    const next = [...values.current];
-    next.splice(to, 0, next.splice(from, 1)[0]);
+    if (!valid(from) || !valid(to) || from === to) return;
+    const mapping = values.current.map((_, i) => i);
+    mapping.splice(to, 0, mapping.splice(from, 1)[0]);
     ids.current.splice(to, 0, ids.current.splice(from, 1)[0]);
-    commit(next);
+    commit(
+      mapping.map((i) => values.current[i]),
+      mapping,
+    );
+  });
+  const swap = useMemoizedFn((a: number, b: number) => {
+    if (!valid(a) || !valid(b) || a === b) return;
+    const mapping = values.current.map((_, i) => i);
+    [mapping[a], mapping[b]] = [mapping[b], mapping[a]];
+    [ids.current[a], ids.current[b]] = [ids.current[b], ids.current[a]];
+    commit(
+      mapping.map((i) => values.current[i]),
+      mapping,
+    );
+  });
+  const update = useMemoizedFn((index: number, item: Item) => {
+    if (!valid(index)) return;
+    const next = [...values.current];
+    next[index] = item;
+    commit(
+      next,
+      next.map((_, i) => i),
+    );
   });
   const replace = useMemoizedFn((next: Item[]) => {
     ids.current = next.map(() => `${prefix}-${sequence.current++}`);
-    commit(next);
+    commit(
+      next,
+      next.map(() => null),
+    );
   });
   return {
     fields: items.map((value, index) => ({ id: ids.current[index], value })),
     append,
+    prepend,
+    insert,
     remove,
     move,
+    swap,
+    update,
     replace,
   };
 }

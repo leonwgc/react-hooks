@@ -73,3 +73,22 @@
 修复 `useTextareaAutoSize` 原生 input 监听提前更新状态，导致 React 受控输入在需要增高时回退到旧值的问题。原生输入测量延后到事件分发完成后；受控值提交后的布局测量保持即时执行，卸载清理待执行测量。
 
 补充直接输入、键盘换行、剪贴板粘贴、自动换行、最大行数、收缩、禁用及卸载清理验证，并明确基础演示的两至五行限制。
+
+## 第五阶段（v0.5.0）
+
+增强既有 8 个 Hooks，保持总数 67；新增配置默认保持原有调用方式。每个增强 Hook 新增两组交互演示，站点现有 67 个基础演示和 150 组补充场景，全部按纵向独立示例展示。
+
+| Hook               | 增强能力                                                           |
+| ------------------ | ------------------------------------------------------------------ |
+| useRequest         | ready、refreshDeps、loadingDelay、fetching、onBefore/onFinally     |
+| useQuery           | 结构化查询键、前缀失效、select/isEqual、选择订阅、keepPreviousData |
+| useForm            | resetField、unregister、卸载保留策略、错误聚焦与原生 ref 绑定      |
+| useFieldArray      | insert/prepend/swap/update，错误与 touched 随记录移动              |
+| useSelection       | Shift 范围选择、禁用项、跨页选择数量上限                           |
+| useAsyncQueue      | 优先级、容量、失败重试、超时终止与真实并发槽保护                   |
+| useUndoRedo        | 输入分组合并、历史标签、事务提交与回滚                             |
+| useTransitionState | 四阶段回调、真实结束事件、属性/动画名过滤与超时兜底                |
+
+注意：队列超时不会自动重试；尚未真正结束的底层任务继续占用并发槽。查询选择器不改变缓存原始类型。条件表单字段应声明为可选，并保留 register 的 ref。字段数组元数据现在随记录移动；需要清空时可显式 resetField 或 replace。
+
+同步修复自动注销与字段数组删除组合时的空行恢复，补齐异步失效、Strict Mode、键盘和动画事件回归检查。

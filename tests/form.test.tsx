@@ -153,7 +153,7 @@ describe("forms", () => {
     act(() => result.current.form.reset());
     expect(result.current.array.fields[0].id).not.toBe(beforeReset);
   });
-  it("clears moved array validation metadata and ignores out-of-range operations", () => {
+  it("removes deleted array validation metadata and ignores out-of-range operations", () => {
     const { result } = renderHook(() => {
       const form = useForm({ initialValues: { rows: [{ text: "a" }] } });
       return { form, array: useFieldArray(form, "rows") };
@@ -166,7 +166,7 @@ describe("forms", () => {
     expect(result.current.form.values.rows).toHaveLength(1);
     act(() => result.current.array.remove(0));
     expect(result.current.form.errors).toEqual({});
-    expect(result.current.form.touched["rows.0.text"]).toBe(false);
+    expect(result.current.form.touched["rows.0.text"]).toBeUndefined();
   });
   it("updates nested paths immutably and prevents prototype pollution", () => {
     const source = { a: [{ b: 1 }] };

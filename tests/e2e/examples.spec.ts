@@ -15,7 +15,9 @@ for (const hook of catalog) {
     await expect(page.locator("#usage")).toContainText(
       useCases[hook.name].overview,
     );
-    await expect(page.locator(".demo-scenario")).toHaveCount(2);
+    await expect(page.locator(".demo-scenario")).toHaveCount(
+      useCases[hook.name].scenarios.length,
+    );
     await expect(page.locator("#api-result")).toBeAttached();
     const kind = returnKinds[hook.name];
     if (kind === "object") {

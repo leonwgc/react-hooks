@@ -39,19 +39,18 @@ const exampleSources = import.meta.glob<string>("./examples/use*.tsx", {
   query: "?raw",
   import: "default",
 });
-const exampleHelpers = import.meta.glob<string>(
-  ["./examples/Scenario.tsx", "./demos/webHelpers.ts"],
-  { query: "?raw", import: "default" },
-);
+const exampleHelpers = import.meta.glob<string>(["./examples/Scenario.tsx"], {
+  query: "?raw",
+  import: "default",
+});
 const examples = Object.fromEntries(
   Object.entries(exampleModules).map(([path, load]) => [
     path.split("/").pop()!.replace(".tsx", ""),
     lazy(async () => {
-      const [module, source, shell, helpers] = await Promise.all([
+      const [module, source, shell] = await Promise.all([
         load(),
         exampleSources[path](),
         exampleHelpers["./examples/Scenario.tsx"](),
-        exampleHelpers["./demos/webHelpers.ts"](),
       ]);
       const Examples = module.default;
       const code = source
@@ -72,7 +71,7 @@ const examples = Object.fromEntries(
                   "\n// 示例容器\n" +
                   shell +
                   (source.includes("webHelpers")
-                    ? "\n// 可取消的本地延时\n" + helpers
+                    ? "\n// 可取消的本地延时\n" + demoHelpersSource
                     : "")
                 }
               />
@@ -172,7 +171,7 @@ function Home() {
       <section className="hero container">
         <div className="hero-copy">
           <a className="eyebrow pill" href="#/guide">
-            <span className="live-dot" /> v0.4.1 · 为 React 18 / 19 而生{" "}
+            <span className="live-dot" /> v0.5.0 · 为 React 18 / 19 而生{" "}
             <span>→</span>
           </a>
           <h1>
@@ -404,16 +403,8 @@ function HookPage({ name }: { name: string }) {
           <h2>
             交互演示 <span className="heading-hash">#</span>
           </h2>
-          <div className="demo-shell">
-            <div className="demo-shell-header">
-              <span>
-                <span className="live-dot" /> LIVE DEMO
-              </span>
-              <span>点击下方控件，体验真实行为</span>
-            </div>
-            <div className="demo-content">
-              <LiveDemo name={hook.name} />
-            </div>
+          <div className="demo-content demo-list">
+            <LiveDemo name={hook.name} />
           </div>
           <details className="source-details">
             <summary>
@@ -531,7 +522,7 @@ function App() {
       <header className="site-header">
         <div className="header-inner">
           <Logo />
-          <span className="version">v0.4.1</span>
+          <span className="version">v0.5.0</span>
           <nav className="top-nav" aria-label="主导航">
             <a className={isHome ? "active" : ""} href="#/">
               概览

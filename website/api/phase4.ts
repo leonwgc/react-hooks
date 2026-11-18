@@ -3,22 +3,9 @@ export const phase4Docs = {
   useQuery: {
     source: "src/data/query.ts",
     signature:
-      "useQuery<T, Key extends string>(store: QueryStore<T, Key>, key: Key | null, options?: { enabled?: boolean })",
-    typeExample: `import { createQueryStore, useQuery } from "@leonwgc/react-hooks";
-type Article = { id: string; title: string };
-// 浏览器应用可在模块级共享；SSR 必须为每个请求单独创建。
-const articles = createQueryStore<Article[], "recent" | "popular">(
-  async ({ signal }, key) => {
-    const response = await fetch("/api/articles?sort=" + key, { signal });
-    if (!response.ok) throw new Error("查询失败");
-    return response.json();
-  },
-  { staleTime: 30_000, cacheTime: 300_000 },
-);
-function ArticleList() {
-  const query = useQuery(articles, "recent"); // data: Article[] | undefined
-  return <span>{query.data?.length ?? 0}</span>;
-}`,
+      "useQuery<T, Key extends QueryKey, Selected = T>(\n  store: QueryStore<T, Key>, key: Key | null, options?: QueryOptions<T, Selected>\n)",
+    typeExample:
+      'import { createQueryStore, useQuery, type QueryKey } from "@leonwgc/react-hooks";\ntype Page = { rows: { id: number; title: string }[]; total: number };\ntype ArticleKey = readonly ["articles", { page: number }];\nconst store = createQueryStore<Page, ArticleKey>(async ({ signal }, [, params]) => {\n  const response = await fetch(`/api/articles?page=${params.page}`, { signal });\n  if (!response.ok) throw new Error("查询失败");\n  return response.json();\n});\nfunction ArticleCount({ page }: { page: number }) {\n  const query = useQuery(store, ["articles", { page }], {\n    select: data => data.total, keepPreviousData: true,\n  }); // data: number | undefined\n  return <button onClick={() => store.invalidate(["articles"], { exact: false })}>\n    {query.isPreviousData ? "更新中：" : "共："}{query.data ?? 0}\n  </button>;\n}',
     generics: [
       {
         name: "T",
@@ -28,10 +15,17 @@ function ArticleList() {
       },
       {
         name: "Key",
-        type: "string",
+        type: "QueryKey",
         defaultValue: "无默认类型",
         description:
-          "缓存键类型；可使用字符串字面量联合；参数组合需由调用者生成稳定键。",
+          "字符串或 JSON 值组成的只读数组；对象键排序后比较，数组顺序有意义。createQueryStore 的 Key 默认 string，结构键请显式指定。",
+      },
+      {
+        name: "Selected",
+        type: "unknown",
+        defaultValue: "T",
+        description:
+          "select 转换后的展示数据类型，从回调返回值推导；不会改变共享缓存中的原始 T。",
       },
     ],
     parameters: [
@@ -50,13 +44,53 @@ function ArticleList() {
       },
       {
         name: "options",
-        type: "{ enabled?: boolean }",
+        type: "QueryOptions<T, Selected>",
         defaultValue: "{}",
         description:
           "enabled 默认 true；false 仍订阅缓存，但不自动获取或响应失效刷新。",
       },
     ],
     sections: [
+      {
+        title: "options",
+        rows: [
+          {
+            name: "enabled",
+            type: "boolean",
+            defaultValue: "true",
+            description:
+              "false 仍订阅缓存，但不自动获取或响应失效刷新；手动 refetch 可用。",
+          },
+          {
+            name: "select",
+            type: "(data: T) => Selected",
+            defaultValue: "undefined",
+            description:
+              "每个订阅者的数据转换；不修改共享缓存，纯函数且应避免抛错。",
+          },
+          {
+            name: "isEqual",
+            type: "(previous: Selected | undefined, next: Selected | undefined) => boolean",
+            defaultValue: "Object.is",
+            description:
+              "比较选中数据，返回 true 保留旧快照引用；其他订阅字段仍独立比较。",
+          },
+          {
+            name: "notifyOnChangeProps",
+            type: "readonly (keyof QueryState<Selected>)[]",
+            defaultValue: "全部状态字段",
+            description:
+              '仅这些字段变化才发布新快照；例如 ["data"] 隔离后台刷新状态。未订阅字段可能保持旧值，请勿依赖其及时更新。',
+          },
+          {
+            name: "keepPreviousData",
+            type: "boolean",
+            defaultValue: "false",
+            description:
+              "同 store 切换键且新键暂无数据时保留上次已提交数据，通过 isPreviousData 区分；不跨 store 或 null 订阅传递。",
+          },
+        ],
+      },
       {
         title: "createQueryStore 参数",
         rows: [
@@ -87,12 +121,32 @@ function ArticleList() {
           },
         ],
       },
+      {
+        title: "store.invalidate(key?, options?)",
+        rows: [
+          {
+            name: "key",
+            type: "QueryKey",
+            defaultValue: "undefined",
+            description:
+              "省略时失效所有已有键；结构键按值匹配，不需要同一对象引用。",
+          },
+          {
+            name: "options.exact",
+            type: "boolean",
+            defaultValue: "true",
+            description:
+              "false 启用前缀匹配：数组按完整元素前缀匹配，字符串按 startsWith 匹配；不做对象部分字段匹配。启用订阅者会重新请求。",
+          },
+        ],
+      },
     ],
     returns: [
       {
         name: "data",
-        type: "T | undefined",
-        description: "当前键的缓存数据；后台刷新时保留旧数据。",
+        type: "Selected | undefined",
+        description:
+          "当前订阅的 select 结果，或 keepPreviousData 保留的前键结果；共享缓存仍为 T。",
       },
       {
         name: "error",
@@ -113,6 +167,12 @@ function ArticleList() {
         name: "updatedAt",
         type: "number",
         description: "最后成功写入时间戳（毫秒），初始为 0。",
+      },
+      {
+        name: "isPreviousData",
+        type: "boolean",
+        description:
+          "正在展示上一个键的数据时为 true；新键有数据、key 为 null 或更换 store 时为 false。",
       },
     ],
     methods: [
@@ -139,11 +199,13 @@ function ArticleList() {
       },
     ],
     types:
-      "// QueryStore、QueryState 和 createQueryStore 均从包入口导出。\ninterface QueryStore<T, Key extends string = string> {\n  fetch(key: Key, force?: boolean): Promise<T>;\n  invalidate(key?: Key): void; // 不传 key 时失效全部已有键\n  setData(key: Key, value: T | ((previous: T | undefined) => T)): void;\n  cancel(key: Key): void;\n  clear(): void; // 清空缓存，不主动重新请求\n  subscribe(key: Key, listener: () => void, enabled?: boolean): () => void;\n  getSnapshot(key: Key): QueryState<T>;\n  getServerSnapshot(): QueryState<T>;\n}\ninterface QueryState<T> {\n  data: T | undefined;\n  error: unknown;\n  status: 'idle' | 'pending' | 'success' | 'error';\n  isFetching: boolean;\n  updatedAt: number;\n}",
+      "type QueryKeyPart = string | number | boolean | null\n  | readonly QueryKeyPart[] | { readonly [key: string]: QueryKeyPart };\ntype QueryKey = string | readonly QueryKeyPart[];\ninterface QueryOptions<T, Selected = T> {\n  enabled?: boolean;\n  select?: (data: T) => Selected;\n  isEqual?: (previous: Selected | undefined, next: Selected | undefined) => boolean;\n  notifyOnChangeProps?: readonly (keyof QueryState<Selected>)[];\n  keepPreviousData?: boolean;\n}\n\n// QueryStore、QueryState 和 createQueryStore 均从包入口导出。\ninterface QueryStore<T, Key extends QueryKey = string> {\n  fetch(key: Key, force?: boolean): Promise<T>;\n  invalidate(key?: QueryKey, options?: { exact?: boolean }): void; // 不传 key 时失效全部已有键\n  setData(key: Key, value: T | ((previous: T | undefined) => T)): void;\n  cancel(key: Key): void;\n  clear(): void; // 清空缓存，不主动重新请求\n  subscribe(key: Key, listener: () => void, enabled?: boolean): () => void;\n  getSnapshot(key: Key): QueryState<T>;\n  getServerSnapshot(): QueryState<T>;\n}\ninterface QueryState<T> {\n  data: T | undefined;\n  error: unknown;\n  status: 'idle' | 'pending' | 'success' | 'error';\n  isFetching: boolean;\n  updatedAt: number;\n}",
     notes: [
       "同键须代表同一组服务参数。createQueryStore 的 service 在创建时确定；不要让它捕获会变化但未编码进 key 的组件状态。",
       "卸载一个订阅者不会取消其他组件共用的请求；无人订阅后仍可完成并写缓存，最终按 cacheTime 回收。",
       "SSR 不会自动请求；每个服务端请求创建自己的 store，禁止把用户缓存放在共享服务端单例。本版不含持久化、脱水注水、焦点刷新或重试；这些能力不隐式继承 useRequest。",
+      "结构键只接受有限数字、字符串、布尔、null、数组和普通对象；不接受 undefined、函数、Date、循环引用。不要修改已经交给 store 的键。",
+      "select 仅影响订阅展示；refetch 仍返回 Promise<T>，setData 接收原始 T。keepPreviousData 不改写新键缓存，展示前键数据期间应禁用依赖新结果的分页操作。",
     ],
   },
   useSteps: {
@@ -505,7 +567,7 @@ function ArticleList() {
   useTransitionState: {
     source: "src/animation/motion.ts",
     signature:
-      "useTransitionState(open: boolean, options?: { enterDuration?: number; exitDuration?: number; appear?: boolean })",
+      "useTransitionState(open: boolean, options?: TransitionStateOptions)",
     parameters: [
       {
         name: "open",
@@ -515,7 +577,7 @@ function ArticleList() {
       },
       {
         name: "options",
-        type: "{ enterDuration?: number; exitDuration?: number; appear?: boolean }",
+        type: "TransitionStateOptions",
         defaultValue: "{}",
         description: "进入、退出时长与首次进入策略。",
       },
@@ -528,19 +590,70 @@ function ArticleList() {
             name: "enterDuration",
             type: "number",
             defaultValue: "200",
-            description: "进入阶段时长 ms，负数按 0。",
+            description:
+              "进入阶段兜底等待 ms；绑定的匹配结束事件可提前完成。负数按 0。",
           },
           {
             name: "exitDuration",
             type: "number",
             defaultValue: "200",
-            description: "退出阶段保留挂载的时长 ms，负数按 0。",
+            description:
+              "退出阶段兜底等待 ms；绑定的匹配结束事件可提前卸载。负数按 0。",
           },
           {
             name: "appear",
             type: "boolean",
             defaultValue: "false",
             description: "首次 open 为 true 时是否也经历 entering。",
+          },
+          {
+            name: "endEvent",
+            type: "'transitionend' | 'animationend'",
+            defaultValue: "'transitionend'",
+            description:
+              "将 bind 展开到实际动画元素上，匹配事件可提前结束阶段；只处理元素自身事件，忽略子节点冒泡。",
+          },
+          {
+            name: "propertyName",
+            type: "string",
+            defaultValue: "undefined",
+            description:
+              "仅接收匹配 CSS 属性的 transitionend，例如 opacity；省略接受任意属性。",
+          },
+          {
+            name: "animationName",
+            type: "string",
+            defaultValue: "undefined",
+            description:
+              "仅接收匹配 keyframes 名称的 animationend；省略接受任意动画名称。",
+          },
+          {
+            name: "onEnter",
+            type: "() => void",
+            defaultValue: "undefined",
+            description:
+              "进入阶段开始一次。反向切换不会触发被取消阶段的完成回调。",
+          },
+          {
+            name: "onEntered",
+            type: "() => void",
+            defaultValue: "undefined",
+            description:
+              "进入阶段完成一次。反向切换不会触发被取消阶段的完成回调。",
+          },
+          {
+            name: "onExit",
+            type: "() => void",
+            defaultValue: "undefined",
+            description:
+              "退出阶段开始一次。反向切换不会触发被取消阶段的完成回调。",
+          },
+          {
+            name: "onExited",
+            type: "() => void",
+            defaultValue: "undefined",
+            description:
+              "退出完成并卸载一次。反向切换不会触发被取消阶段的完成回调。",
           },
         ],
       },
@@ -561,12 +674,19 @@ function ArticleList() {
         type: "boolean",
         description: "与期望 open 一致，退出阶段为 false。",
       },
+      {
+        name: "bind",
+        type: "{ onTransitionEnd: React.TransitionEventHandler<HTMLElement>; onAnimationEnd: React.AnimationEventHandler<HTMLElement> }",
+        description:
+          "展开到实际动画元素上；不自动添加 CSS。事件与兜底计时器只会完成当前阶段一次。",
+      },
     ],
     types:
-      "type TransitionPhase = 'unmounted' | 'entering' | 'entered' | 'exiting';",
+      "type TransitionPhase = 'unmounted' | 'entering' | 'entered' | 'exiting';\ninterface TransitionStateOptions {\n  enterDuration?: number; exitDuration?: number; appear?: boolean;\n  endEvent?: \"transitionend\" | \"animationend\";\n  propertyName?: string; animationName?: string;\n  onEnter?: () => void; onEntered?: () => void;\n  onExit?: () => void; onExited?: () => void;\n}",
     notes: [
       "本 Hook 管理挂载时序，不自动添加 CSS 动画。将 phase 映射到类名或样式，并让 CSS 时长与配置一致。",
       "系统要求减少动态效果时立即完成阶段切换。修改时长会重新计时；卸载清理所有计时器。",
+      "兜底时长应不短于 CSS 动画时长；未绑定 bind 或浏览器不派发结束事件时仍能完成卸载。首次 open: true 且 appear: false 不触发进入回调。",
     ],
   },
   useGesture: {

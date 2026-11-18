@@ -8,56 +8,141 @@ export interface QueueTask<T> {
   status: "queued" | "running" | "success" | "error" | "cancelled";
   result?: T;
   error?: unknown;
+  priority?: number;
+  attempts?: number;
+  retryCount?: number;
+}
+export interface QueueTaskOptions {
+  priority?: number;
+  retry?: number;
+  retryDelay?: number;
+  timeout?: number;
+}
+export interface AsyncQueueOptions extends QueueTaskOptions {
+  concurrency?: number;
+  capacity?: number;
+}
+export class QueueCapacityError extends Error {
+  constructor() {
+    super("Queue capacity exceeded");
+    this.name = "QueueCapacityError";
+  }
+}
+export class QueueTimeoutError extends Error {
+  constructor(public timeout: number) {
+    super(`Task timed out after ${timeout}ms`);
+    this.name = "TimeoutError";
+  }
 }
 interface Job<T> {
   state: QueueTask<T>;
+  order: number;
+  options: QueueTaskOptions;
   run: (signal: AbortSignal) => Promise<T>;
   controller: AbortController;
+  retryTimer?: ReturnType<typeof setTimeout>;
+  timeoutTimer?: ReturnType<typeof setTimeout>;
   resolve: (value: T) => void;
   reject: (reason: unknown) => void;
 }
-export function useAsyncQueue<T = unknown>({
-  concurrency = 3,
-}: { concurrency?: number } = {}) {
+export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
+  const { concurrency = 3 } = options;
   const [tasks, setTasks] = useState<QueueTask<T>[]>([]);
   const [paused, setPaused] = useState(false);
   const jobs = useRef(new Map<string, Job<T>>());
-  const active = useRef(0);
-  const sequence = useRef(0);
-  const stopped = useRef(false);
-  const mounted = useRef(true);
+  const active = useRef(0),
+    sequence = useRef(0),
+    stopped = useRef(false),
+    mounted = useRef(true);
   const limit = useLatest(
     Number.isFinite(concurrency) ? Math.max(1, Math.floor(concurrency)) : 3,
   );
+  const config = useLatest(options);
   const publish = useMemoizedFn(() => {
     if (mounted.current)
       setTasks(Array.from(jobs.current.values(), (job) => ({ ...job.state })));
   });
   const pump = useMemoizedFn(() => {
     if (!mounted.current || stopped.current) return;
-    for (const job of jobs.current.values()) {
+    const pending = [...jobs.current.values()]
+      .filter(
+        (job) => job.state.status === "queued" && job.retryTimer === undefined,
+      )
+      .sort(
+        (a, b) =>
+          (b.state.priority ?? 0) - (a.state.priority ?? 0) ||
+          a.order - b.order,
+      );
+    for (const job of pending) {
       if (active.current >= limit.current) break;
-      if (job.state.status !== "queued") continue;
       active.current++;
-      job.state.status = "running";
+      job.state = {
+        ...job.state,
+        status: "running",
+        attempts: (job.state.attempts ?? 0) + 1,
+        error: undefined,
+      };
+      const attempt = new AbortController();
+      const abort = () => attempt.abort();
+      job.controller.signal.addEventListener("abort", abort, { once: true });
+      if (job.controller.signal.aborted) abort();
+      const timeout = job.options.timeout ?? 0;
+      if (Number.isFinite(timeout) && timeout > 0)
+        job.timeoutTimer = setTimeout(() => {
+          if (job.state.status !== "running") return;
+          const error = new QueueTimeoutError(timeout);
+          job.state = { ...job.state, status: "error", error };
+          job.reject(error);
+          attempt.abort();
+          publish();
+          // Do not free this slot until the transport actually settles.
+        }, timeout);
       void Promise.resolve()
         .then(() => {
-          if (job.controller.signal.aborted) throw abortError();
-          return job.run(job.controller.signal);
+          if (attempt.signal.aborted) throw abortError();
+          return job.run(attempt.signal);
         })
         .then(
           (result) => {
-            if (job.state.status === "cancelled") return;
+            if (job.state.status !== "running") return;
             job.state = { ...job.state, status: "success", result };
             job.resolve(result);
           },
           (error) => {
-            if (job.state.status === "cancelled") return;
-            job.state = { ...job.state, status: "error", error };
-            job.reject(error);
+            if (job.state.status !== "running") return;
+            const retry = Number.isFinite(job.options.retry)
+              ? Math.max(0, Math.floor(job.options.retry!))
+              : 0;
+            if (
+              (job.state.retryCount ?? 0) < retry &&
+              !job.controller.signal.aborted &&
+              mounted.current
+            ) {
+              job.state = {
+                ...job.state,
+                status: "queued",
+                retryCount: (job.state.retryCount ?? 0) + 1,
+                error,
+              };
+              job.retryTimer = setTimeout(
+                () => {
+                  job.retryTimer = undefined;
+                  pump();
+                },
+                Number.isFinite(job.options.retryDelay)
+                  ? Math.max(0, job.options.retryDelay!)
+                  : 0,
+              );
+            } else {
+              job.state = { ...job.state, status: "error", error };
+              job.reject(error);
+            }
           },
         )
         .finally(() => {
+          clearTimeout(job.timeoutTimer);
+          job.timeoutTimer = undefined;
+          job.controller.signal.removeEventListener("abort", abort);
           active.current--;
           publish();
           pump();
@@ -68,6 +153,9 @@ export function useAsyncQueue<T = unknown>({
   const cancel = useMemoizedFn((id: string) => {
     const job = jobs.current.get(id);
     if (!job || !["queued", "running"].includes(job.state.status)) return;
+    clearTimeout(job.retryTimer);
+    job.retryTimer = undefined;
+    clearTimeout(job.timeoutTimer);
     job.state = { ...job.state, status: "cancelled" };
     job.controller.abort();
     job.reject(abortError());
@@ -77,22 +165,48 @@ export function useAsyncQueue<T = unknown>({
     for (const id of jobs.current.keys()) cancel(id);
   });
   const add = useMemoizedFn(
-    (run: (signal: AbortSignal) => Promise<T>, label: string = "") => {
+    (
+      run: (signal: AbortSignal) => Promise<T>,
+      label: string = "",
+      taskOptions: QueueTaskOptions = {},
+    ) => {
       const id = `task-${++sequence.current}`;
-      let resolve!: (value: T) => void;
-      let reject!: (reason: unknown) => void;
+      let resolve!: (value: T) => void, reject!: (reason: unknown) => void;
       const promise = new Promise<T>((yes, no) => {
         resolve = yes;
         reject = no;
       });
-      // State-based callers need not attach a catch; promise-based callers still observe rejection.
       void promise.catch(() => {});
+      const capacity = Number.isFinite(config.current.capacity)
+        ? Math.max(0, Math.floor(config.current.capacity!))
+        : Infinity;
       if (!mounted.current) {
         reject(abortError());
         return { id, promise };
       }
+      if (
+        [...jobs.current.values()].filter((job) =>
+          ["queued", "running"].includes(job.state.status),
+        ).length >= capacity
+      ) {
+        reject(new QueueCapacityError());
+        return { id, promise };
+      }
+      const settings = { ...config.current, ...taskOptions };
+      const priority = Number.isFinite(settings.priority)
+        ? settings.priority!
+        : 0;
       jobs.current.set(id, {
-        state: { id, label, status: "queued" },
+        state: {
+          id,
+          label,
+          status: "queued",
+          priority,
+          attempts: 0,
+          retryCount: 0,
+        },
+        order: sequence.current,
+        options: settings,
         run,
         controller: new AbortController(),
         resolve,

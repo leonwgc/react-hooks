@@ -2,7 +2,7 @@ import { p, v, options, target, targetType, type ApiDoc } from "./types";
 const source = "src/web/interaction.ts";
 export const webInteractionDocs = {
   useUndoRedo: {
-    source,
+    source: "src/web/interaction.ts",
     generics: [
       {
         name: "T",
@@ -11,48 +11,162 @@ export const webInteractionDocs = {
         description: "每一份历史快照的值类型。",
       },
     ],
-    signature:
-      "useUndoRedo<T>(\n  initial: T,\n  options?: {\n    limit?: number;\n  },\n)",
+    signature: "useUndoRedo<T>(initial: T, options?: UndoRedoOptions)",
     parameters: [
-      p("initial", "T", "必填", "初始不可变快照；后续参数变化不重置历史。"),
-      options("{\n    limit?: number;\n}", false),
+      {
+        name: "initial",
+        type: "T",
+        defaultValue: "必填",
+        description: "初始不可变快照；后续参数变化不重置历史。",
+      },
+      {
+        name: "options",
+        type: "UndoRedoOptions",
+        defaultValue: "{}",
+        description: "配置对象，字段见下表。",
+      },
     ],
     sections: [
       {
         title: "options",
         rows: [
-          p(
-            "limit",
-            "number",
-            "100",
-            "新写入时保留的撤销快照上限，取整且至少 1；请传有限正数。",
-          ),
+          {
+            name: "limit",
+            type: "number",
+            defaultValue: "100",
+            description:
+              "新写入时保留的撤销快照上限，取整且至少 1；请传有限正数。",
+          },
+          {
+            name: "mergeWindow",
+            type: "number",
+            defaultValue: "0",
+            description:
+              "同 group 且距上次写入不超过此毫秒数时合并为一次撤销；0 禁用。未指定 group 的连续写入也属于同一组。undo/redo/replace/事务会打断合并。",
+          },
+        ],
+      },
+      {
+        title: "set 第二个参数 · options",
+        rows: [
+          {
+            name: "replace",
+            type: "boolean",
+            defaultValue: "false",
+            description: "替换当前值，不新增历史；清空未来分支并打断输入合并。",
+          },
+          {
+            name: "group",
+            type: "string",
+            defaultValue: "undefined",
+            description:
+              "合并分组；例如 title 和 body 分开，避免不同字段共用一个撤销步骤。",
+          },
+          {
+            name: "label",
+            type: "string",
+            defaultValue: "undefined",
+            description:
+              "本次历史操作的描述，供 undoLabel / redoLabel 与历史列表展示。合并时采用最近提供的 label。",
+          },
         ],
       },
     ],
     returns: [
-      v("value", "T", "当前快照引用。"),
-      v("canUndo", "boolean", "是否存在过去快照，初始 false。"),
-      v("canRedo", "boolean", "是否存在未来快照，初始 false。"),
+      {
+        name: "value",
+        type: "T",
+        description: "当前快照引用。",
+      },
+      {
+        name: "canUndo",
+        type: "boolean",
+        description: "是否存在过去快照，初始 false。",
+      },
+      {
+        name: "canRedo",
+        type: "boolean",
+        description: "是否存在未来快照，初始 false。",
+      },
+      {
+        name: "past",
+        type: "HistoryEntry<T>[]",
+        description:
+          "过去的快照，从最早到最近；只读使用。每项 label 描述从该快照执行的修改。",
+      },
+      {
+        name: "future",
+        type: "HistoryEntry<T>[]",
+        description: "可重做快照，下一项在索引 0；只读使用。",
+      },
+      {
+        name: "undoLabel",
+        type: "string | undefined",
+        description: "下一次撤销的操作说明，无记录或未提供标签时 undefined。",
+      },
+      {
+        name: "redoLabel",
+        type: "string | undefined",
+        description: "下一次重做的操作说明。",
+      },
+      {
+        name: "inTransaction",
+        type: "boolean",
+        description: "当前是否有未提交事务，初始 false。",
+      },
     ],
     methods: [
-      v(
-        "set",
-        "(next: T | ((previous: T) => T), options?: { replace?: boolean }) => void",
-        "写入新快照。replace 默认 false；true 时替换当前快照而不新增撤销项。Object.is 相同时无操作；有效写入清空重做分支。",
-      ),
-      v("undo", "() => void", "回到上一快照；没有历史时无操作。"),
-      v("redo", "() => void", "恢复下一快照；没有未来记录时无操作。"),
-      v(
-        "reset",
-        "(value: T) => void",
-        "用给定值重新开始并清空两侧历史；value 必填。",
-      ),
-      v("clear", "() => void", "保留当前值，只清空撤销和重做历史。"),
+      {
+        name: "set",
+        type: "(next: T | ((previous: T) => T), options?: HistoryUpdateOptions) => void",
+        description:
+          "不可变更新；Object.is 相同则跳过。事务内只更新当前值，提交时作为一个撤销步骤；事务外按 replace/group/mergeWindow 处理。",
+      },
+      {
+        name: "undo",
+        type: "() => void",
+        description: "回到上一快照；没有历史时无操作。",
+      },
+      {
+        name: "redo",
+        type: "() => void",
+        description: "恢复下一快照；没有未来记录时无操作。",
+      },
+      {
+        name: "reset",
+        type: "(value: T) => void",
+        description: "用给定值重新开始并清空两侧历史；value 必填。",
+      },
+      {
+        name: "clear",
+        type: "() => void",
+        description: "保留当前值，只清空撤销和重做历史。",
+      },
+      {
+        name: "beginTransaction",
+        type: "(label?: string) => boolean",
+        description:
+          "记录事务基点；已有事务时返回 false，不嵌套。事务内禁止 undo/redo。",
+      },
+      {
+        name: "commitTransaction",
+        type: "() => boolean",
+        description:
+          "提交所有事务修改为一个撤销步骤；与基点 Object.is 相同则保留原历史。无事务返回 false。",
+      },
+      {
+        name: "rollbackTransaction",
+        type: "() => boolean",
+        description:
+          "恢复事务开始前的值及完整历史（含 redo）；无事务返回 false。",
+      },
     ],
     notes: [
       "保存引用，不做深拷贝。对象或数组必须不可变更新，原地修改会破坏历史快照。",
+      "事务进行中 canUndo/canRedo 均为 false；clear/reset 会丢弃事务，保留规则按对应方法。合并基于相邻写入间隔，持续输入可能形成较长的一条记录。",
     ],
+    types:
+      "interface HistoryEntry<T> { value: T; label?: string }\ninterface UndoRedoOptions { limit?: number; mergeWindow?: number }\ninterface HistoryUpdateOptions { replace?: boolean; group?: string; label?: string }",
   },
   useLeaveConfirm: {
     source,

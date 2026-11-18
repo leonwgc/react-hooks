@@ -74,6 +74,98 @@ function Case2() {
     </>
   );
 }
+
+function Enhanced1() {
+  const [log, setLog] = React.useState<string[]>([]),
+    [error, setError] = React.useState("");
+  const q = useAsyncQueue<string>({ concurrency: 1, capacity: 2 });
+  const add = (label: string, priority: number) => {
+    const h = q.add(
+      async (signal) => {
+        await delay(signal, 250);
+        setLog((x) => [...x, label]);
+        return label;
+      },
+      label,
+      { priority },
+    );
+    void h.promise.catch((e) => setError(String(e)));
+  };
+  return (
+    <>
+      <button
+        onClick={() => {
+          q.pause();
+          setLog([]);
+          setError("");
+          add("普通任务", 0);
+          add("高优先级", 10);
+          add("超额任务", 20);
+        }}
+      >
+        准备优先级队列
+      </button>
+      <button onClick={q.resume}>恢复优先级调度</button>
+      <output>{log.join(" → ") || "等待运行"}</output>
+      {error && <p role="alert">{error}</p>}
+      <ul>
+        {q.tasks.map((t) => (
+          <li key={t.id}>
+            {t.label} · {t.status}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
+function Enhanced2() {
+  const q = useAsyncQueue<string>({
+    concurrency: 1,
+    retry: 2,
+    retryDelay: 300,
+  });
+  return (
+    <>
+      <button
+        onClick={() => {
+          let attempt = 0;
+          q.add(async (signal) => {
+            await delay(signal, 100);
+            if (++attempt < 3) throw Error("模拟暂时失败");
+            return "第三次成功";
+          }, "重试任务");
+        }}
+      >
+        加入可恢复任务
+      </button>
+      <button
+        onClick={() =>
+          q.add(
+            async (signal) => {
+              await delay(signal, 1500);
+              return "完成";
+            },
+            "超时任务",
+            { timeout: 200 },
+          )
+        }
+      >
+        加入超时任务
+      </button>
+      <button onClick={q.cancelAll}>取消所有增强任务</button>
+      <ul>
+        {q.tasks.map((t) => (
+          <li key={t.id}>
+            {t.label} · {t.status} · 尝试 {t.attempts} ·{" "}
+            {t.result ?? String(t.error ?? "")}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -88,6 +180,18 @@ export default function Examples() {
         description="失败任务记录 error，后续任务继续运行，结束后可以清理历史。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        title="优先级与队列容量"
+        description="暂停后加入普通和高优先级任务，恢复时高优先级先执行；超过容量会明确拒绝。"
+      >
+        <Enhanced1 />
+      </Scenario>
+      <Scenario
+        title="失败重试与超时取消"
+        description="前两次失败后成功；另一个任务超时后终止，不继续重试。可在退避等待中取消全部。"
+      >
+        <Enhanced2 />
       </Scenario>
     </div>
   );

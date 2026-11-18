@@ -1,0 +1,2 @@
+import{n as e}from"./browser-Ir7b8VEw.js";import{E as t}from"./index-CPbGKt3e.js";var n=t();function r(){let t=e();return(0,n.jsxs)(`div`,{className:`demo-stack`,children:[(0,n.jsx)(`button`,{disabled:t.loading,onClick:()=>void t.download(new Blob([`由 Web Hooks 生成的示例文件
+`],{type:`text/plain;charset=utf-8`}),`web-hooks-demo.txt`).catch(()=>{}),children:`下载示例文本`}),!!t.error&&(0,n.jsx)(`p`,{role:`alert`,children:String(t.error)}),(0,n.jsx)(`small`,{children:`在浏览器本地生成 Blob；URL 下载则支持 HTTP 错误与取消。`})]})}export{r as default};

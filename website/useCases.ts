@@ -236,6 +236,16 @@ export const useCases = {
         title: "替换快照与清除历史",
         description: "replace 不新增撤销步骤；clear 保留当前值并清空历史。",
       },
+      {
+        title: "连续输入合并与标签",
+        description:
+          "800ms 内的连续输入归为一次撤销，停顿或撤销会打断合并；显示下一次操作标签。",
+      },
+      {
+        title: "事务提交与回滚",
+        description:
+          "事务中修改多个属性，提交只生成一个撤销步骤；回滚恢复事务前的值和历史。",
+      },
     ],
   },
   useFocusWithin: {
@@ -708,6 +718,16 @@ export const useCases = {
         description:
           "preserve 保留跨页选择，但 resetKey 变化会清空旧查询的选择。",
       },
+      {
+        title: "Shift 范围与禁用项",
+        description:
+          "先点 A，再按住 Shift 点 E，范围选中跳过禁用的 C；也可用按钮执行相同范围选择。",
+      },
+      {
+        title: "选择上限与动态裁剪",
+        description:
+          "设置最多可选数量，批量选择遵守上限；缩小上限或禁用已选项会自动裁剪。",
+      },
     ],
   },
   useRequest: {
@@ -723,6 +743,16 @@ export const useCases = {
         title: "竞争请求与本地修改",
         description:
           "慢请求和快请求连续发出时只保留最新结果，mutate 可直接更新当前展示数据。",
+      },
+      {
+        title: "就绪条件与依赖刷新",
+        description:
+          "启用查询后自动加载；切换页码通过 refreshDeps 请求，关闭就绪条件会取消当前请求。",
+      },
+      {
+        title: "延迟加载与生命周期",
+        description:
+          "快请求不闪烁 loading；慢请求延迟显示加载，取消不触发 onFinally。",
       },
     ],
   },
@@ -754,6 +784,16 @@ export const useCases = {
         title: "单任务失败不阻断后续",
         description:
           "失败任务记录 error，后续任务继续运行，结束后可以清理历史。",
+      },
+      {
+        title: "优先级与队列容量",
+        description:
+          "暂停后加入普通和高优先级任务，恢复时高优先级先执行；超过容量会明确拒绝。",
+      },
+      {
+        title: "失败重试与超时取消",
+        description:
+          "前两次失败后成功；另一个任务超时后终止，不继续重试。可在退避等待中取消全部。",
       },
     ],
   },
@@ -818,6 +858,16 @@ export const useCases = {
         description:
           "模拟提交失败后展示 submitError，也可把业务错误绑定到字段；重置会清理状态。",
       },
+      {
+        title: "单字段重置与错误聚焦",
+        description:
+          "提交空值时自动聚焦首个错误字段；只重置姓名，不影响另一字段的编辑。",
+      },
+      {
+        title: "条件字段卸载策略",
+        description:
+          "勾选移除策略后，隐藏字段会注销其值与校验；默认隐藏后仍保留。",
+      },
     ],
   },
   useFieldArray: {
@@ -833,6 +883,16 @@ export const useCases = {
         title: "批量替换与稳定标识",
         description:
           "移动保留行 ID，replace 为新数据生成新 ID；表单 reset 恢复初始数组。",
+      },
+      {
+        title: "插入交换与元数据跟随",
+        description:
+          "给第一行标记错误后交换行，错误与 touched 随原记录移动；插入的新行有独立 ID。",
+      },
+      {
+        title: "更新保留身份与数组重置",
+        description:
+          "更新一行保留 ID，头部插入不改变旧行身份；重置数组则为全部行重新生成 ID。",
       },
     ],
   },
@@ -910,6 +970,16 @@ export const useCases = {
         title: "手动查询与错误恢复",
         description:
           "enabled 为 false 时不自动请求；失败后显式重试，并可取消正在进行的请求。",
+      },
+      {
+        title: "结构键与分页保留",
+        description:
+          "用数组和对象描述缓存键，切页时保留前页数据，并可按 articles 前缀刷新全部已有页。",
+      },
+      {
+        title: "选择数据与隔离订阅",
+        description:
+          "两个订阅者共用缓存，计数组件只订阅 count；修改备注不会重绘该组件。",
       },
     ],
   },
@@ -1002,6 +1072,16 @@ export const useCases = {
         title: "快速反向切换",
         description:
           "退出未完成时重新打开会取消旧的卸载计时器，不会被旧任务意外移除。",
+      },
+      {
+        title: "动画结束与生命周期回调",
+        description:
+          "实际 CSS 动画为 250ms，兜底为 1500ms；绑定 animationend 后会提前完成并记录回调。",
+      },
+      {
+        title: "缺失结束事件的兜底",
+        description:
+          "不播放 CSS 动画，也不会触发结束事件；阶段仍按 600ms 兜底完成，快速反向切换取消旧计时。",
       },
     ],
   },

@@ -14,8 +14,8 @@ export const catalog = [
   {
     name: "useUndoRedo",
     category: "状态管理",
-    description: "为编辑操作保留有限的撤销与重做历史。",
-    note: "set 接受值或函数；set(value, { replace: true }) 合并当前编辑而不新增历史。撤销后写入会清空重做分支。保存引用，不深拷贝数据；不要原地修改快照。",
+    description: "管理撤销重做、连续输入合并与可提交或回滚的事务。",
+    note: "保存不可变引用，不做深拷贝；mergeWindow 默认 0。相邻同 group 输入可合并，事务期间禁用撤销重做，提交为单步历史，回滚恢复整个基点。事务不嵌套，reset/clear 会结束事务。",
   },
   {
     name: "useLeaveConfirm",
@@ -26,8 +26,8 @@ export const catalog = [
   {
     name: "useAsyncQueue",
     category: "副作用与性能",
-    description: "限制异步任务并发，支持暂停和取消。",
-    note: "暂停只阻止等待任务启动，正在运行的任务继续。取消立即拒绝任务 Promise，但忽略 signal 的传输实际结束前仍占并发槽。clear 清除已结束任务。状态调用者可忽略 Promise；await 调用者需处理拒绝。卸载取消所有任务。",
+    description: "按并发与优先级调度任务，支持容量、重试和超时。",
+    note: "优先级只影响等待任务，不抢占运行任务；默认不重试。取消/超时立即拒绝 Promise，但不配合 signal 的底层工作仍占槽直到真正结束。超时不重试，容量统计 queued/running；卸载清理调度与重试计时器。",
   },
   {
     name: "useUpload",
@@ -254,8 +254,8 @@ export const catalog = [
   {
     name: "useRequest",
     category: "数据与列表",
-    description: "让异步请求的状态与生命周期可控。",
-    note: "仅显式开启 retry 才会重试，非幂等写操作应由业务方决定。timeout 返回 RequestTimeoutError，并中止当次信号；即使 service 忽略 signal 也会结束等待，但不能强制停止服务器处理。cancel 清除轮询、重试等待并阻止自动刷新，run 恢复。聚焦/重连刷新跳过正在执行的请求；手动 refresh 不受节流限制。默认保留后台轮询，需显式设置 pollingWhenHidden: false。",
+    description: "管理异步请求、条件执行、重试与延迟加载状态。",
+    note: "默认手动执行；manual: false 需 defaultParams。ready: false 阻止并取消请求，refreshDeps 仅自动模式生效；fetching 是真实请求状态，loading 可延迟展示。取消、替换和卸载不触发 onFinally，旧响应不覆盖新请求。重试写操作需调用方保证幂等性。",
   },
   {
     name: "usePagination",
@@ -278,8 +278,8 @@ export const catalog = [
   {
     name: "useSelection",
     category: "数据与列表",
-    description: "管理当前页或跨页的记录选择。",
-    note: "全选仅作用于当前 keys，跨页保留其他选择。ID 需要唯一。preserve 模式下已删除记录的选择需调用方清理。",
+    description: "管理单选切换、批量与范围选择、禁用项及数量上限。",
+    note: "preserve 默认为 false；跨页保留需显式开启。范围按当前 keys 顺序，Shift 由调用方传 range。禁用项被跳过且不计入全选；maxSelected 约束全部保留的选择，缩小上限会裁剪。resetKey 变化与 clear 会清除范围锚点。",
   },
   {
     name: "useDisclosure",
@@ -332,14 +332,14 @@ export const catalog = [
   {
     name: "useForm",
     category: "表单",
-    description: "管理表单值、校验和完整提交流程。",
-    note: "默认提交校验、提交后修改重新校验；显式 validate/submit 始终立即校验。配置 dependencies 后按变更字段与依赖传播校验，否则自动全表校验；schema 存在时始终全表校验。过期异步结果不覆盖新值。schema 抛错通过 submitError 呈现并阻止提交。control 身份稳定，结合 useFormField 和 React.memo 隔离无关字段渲染。输入数字为空时为 NaN，请用 Number.isFinite 校验。",
+    description: "管理类型化表单、字段生命周期、校验与错误聚焦。",
+    note: "默认保留卸载字段；shouldUnregister 依赖 register.ref/getFieldRef，条件字段须声明可选。resetField 只恢复对应基准，提交聚焦需启用 shouldFocusError。异步旧校验结果不会覆盖新值，schema 需兼容条件字段。",
   },
   {
     name: "useFieldArray",
     category: "表单",
-    description: "为可增删、可排序的字段组保持身份。",
-    note: "渲染 key 使用 field.id；移动保留 ID，reset/replace 重新生成。数组结构变化会清除该数组的错误和 touched 元数据，再按表单策略校验。结构操作使用这里的方法，避免直接 setValues 导致 ID 与行内容错位。",
+    description: "管理动态字段数组，让身份、错误和触碰状态随记录移动。",
+    note: "请以 fields[].id 为 React key。插入、移动、交换保持旧行身份和元数据；update 保留身份，replace/reset/resetField 会重建相关 ID。删除只移除被删行元数据；避免绕过 Hook 改变数组结构。",
   },
   {
     name: "useFormField",
@@ -356,8 +356,8 @@ export const catalog = [
   {
     name: "useQuery",
     category: "数据与列表",
-    description: "跨组件共享查询缓存，去重请求并显式刷新失效数据。",
-    note: "显式创建 store；同键共享结果与取消。SSR 应按请求隔离 store，不提供自动服务端注水。",
+    description: "共享查询缓存，支持结构键、选择订阅和分页保留。",
+    note: "同 store 的等价键共享请求和缓存；对象键顺序不影响结构键。select 只改变展示数据，setData/refetch 仍使用原始数据。keepPreviousData 不跨 store/null 传递；按前缀失效需显式 exact: false。SSR 按请求创建 store，不使用用户数据单例。",
   },
   {
     name: "useSteps",
@@ -392,8 +392,8 @@ export const catalog = [
   {
     name: "useTransitionState",
     category: "动画",
-    description: "管理进入、退出阶段与延迟卸载。",
-    note: "只管理生命周期，CSS 动画由调用方实现，配置时长须与 CSS 一致。",
+    description: "用结束事件与兜底计时管理进入、退出和延迟卸载。",
+    note: "Hook 不生成 CSS；把 bind 展开到实际动画元素，按 endEvent/propertyName/animationName 过滤自身结束事件。计时器用于无事件兜底，时长不应短于 CSS 动画。快速反向切换取消旧阶段，减少动态效果时立即完成。",
   },
   {
     name: "useGesture",

@@ -14,7 +14,7 @@
 - 请求取消、竞态隔离、轮询；搜索、分页、排序与跨页选择。
 - 原生 Web Animations API、逐帧循环和减少动态效果偏好。
 - 表单字段、嵌套路径、同步/异步/跨字段校验、动态字段数组。
-- 中文文档、67 个基础演示与 134 组补充交互场景、示例源码与完整列表编辑场景。
+- 中文文档、67 个基础演示与 150 组补充交互场景、示例源码与完整列表编辑场景。
 - 单个 npm 项目，直接使用目录组织；**不使用 workspaces**。库与站点都由 **Vite 8+** 构建。
 
 ## 安装
@@ -33,7 +33,7 @@ cd react-hooks
 npm install
 npm pack
 # 在消费项目中运行，替换为真实路径
-npm install /path/to/leonwgc-react-hooks-0.4.1.tgz
+npm install /path/to/leonwgc-react-hooks-0.5.0.tgz
 ```
 
 ## 使用
@@ -115,7 +115,7 @@ async function saveEmail(email: string) {
 
 每个 Hook 的 TypeScript 调用签名、泛型含义与约束、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。参数类型列支持就地展开泛型说明，例如 `Cursor` 的推断方式、可选类型及分页结束标记。
 
-每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。合计 134 组补充演示，可分别展开、收起和重新开始，并查看包含辅助容器的源码。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
+每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。合计 150 组补充演示，可分别展开、收起和重新开始，并查看包含辅助容器的源码。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
 
 ## 重要约定
 
@@ -151,7 +151,7 @@ website/                # 文档站源码
   demos/                # 每个 Hook 的独立可运行示例
   catalog.ts            # 文档目录与行为边界
   api/                  # 67 个 Hooks 的逐字段 API 文档及返回结构
-  examples/             # 134 组独立补充场景与可重置演示容器
+  examples/             # 150 组独立补充场景与可重置演示容器
   useCases.ts           # 每个 Hook 的功能描述与使用场景
   DEMO_COVERAGE.md       # 演示场景覆盖清单
 docs/                   # Vite 生成的 GitHub Pages 发布产物
@@ -202,6 +202,23 @@ Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` �
 - `useSpring`、`useTransitionState`、`useGesture`：数值弹簧、延迟卸载、单指针拖动与滑动。
 
 每个新增 Hook 都包含完整 TypeScript API、使用场景、基础示例和两组补充演示。查询演示使用本地模拟服务；过渡 Hook 只管理时序，CSS 动画由调用方提供；手势操作提供按钮作为键盘等价入口。
+
+## 第五阶段（v0.5.0）
+
+增强既有 8 个 Hooks，保持总数 67；新增配置默认保持原有调用方式。每个增强 Hook 新增两组交互演示，站点现有 67 个基础演示和 150 组补充场景，全部按纵向独立示例展示。
+
+| Hook               | 增强能力                                                           |
+| ------------------ | ------------------------------------------------------------------ |
+| useRequest         | ready、refreshDeps、loadingDelay、fetching、onBefore/onFinally     |
+| useQuery           | 结构化查询键、前缀失效、select/isEqual、选择订阅、keepPreviousData |
+| useForm            | resetField、unregister、卸载保留策略、错误聚焦与原生 ref 绑定      |
+| useFieldArray      | insert/prepend/swap/update，错误与 touched 随记录移动              |
+| useSelection       | Shift 范围选择、禁用项、跨页选择数量上限                           |
+| useAsyncQueue      | 优先级、容量、失败重试、超时终止与真实并发槽保护                   |
+| useUndoRedo        | 输入分组合并、历史标签、事务提交与回滚                             |
+| useTransitionState | 四阶段回调、真实结束事件、属性/动画名过滤与超时兜底                |
+
+注意：队列超时不会自动重试；尚未真正结束的底层任务继续占用并发槽。查询选择器不改变缓存原始类型。条件表单字段应声明为可选，并保留 register 的 ref。字段数组元数据现在随记录移动；需要清空时可显式 resetField 或 replace。
 
 ## 参考与许可证
 

@@ -9,61 +9,146 @@ import {
 import { useMemoizedFn, useLatest } from "../state/index.js";
 import { equal, resolveTarget, type Target } from "../internal/utils.js";
 
+export interface HistoryEntry<T> {
+  value: T;
+  label?: string;
+}
+export interface UndoRedoOptions {
+  limit?: number;
+  mergeWindow?: number;
+}
+export interface HistoryUpdateOptions {
+  replace?: boolean;
+  group?: string;
+  label?: string;
+}
 export function useUndoRedo<T>(
   initial: T,
-  { limit = 100 }: { limit?: number } = {},
+  { limit = 100, mergeWindow = 0 }: UndoRedoOptions = {},
 ) {
-  const [history, setHistory] = useState({
-    past: [] as T[],
+  type History = {
+    past: HistoryEntry<T>[];
+    present: T;
+    future: HistoryEntry<T>[];
+  };
+  const [history, setHistory] = useState<History>({
+    past: [],
     present: initial,
-    future: [] as T[],
+    future: [],
   });
+  const current = useRef(history);
+  const transaction = useRef<{ base: History; label?: string } | null>(null);
+  const merge = useRef<{ group: string | undefined; time: number } | null>(
+    null,
+  );
+  const publish = (next: History) => {
+    current.current = next;
+    setHistory(next);
+  };
+  const capacity = Number.isFinite(limit)
+    ? Math.max(1, Math.floor(limit))
+    : 100;
   const set = useMemoizedFn(
-    (value: T | ((previous: T) => T), options: { replace?: boolean } = {}) => {
-      setHistory((h) => {
-        const next =
-          typeof value === "function"
-            ? (value as (previous: T) => T)(h.present)
-            : value;
-        if (Object.is(next, h.present)) return h;
-        return {
-          past: options.replace
-            ? h.past
-            : [...h.past, h.present].slice(-Math.max(1, Math.floor(limit))),
-          present: next,
-          future: [],
+    (value: T | ((previous: T) => T), options: HistoryUpdateOptions = {}) => {
+      const h = current.current;
+      const next =
+        typeof value === "function"
+          ? (value as (previous: T) => T)(h.present)
+          : value;
+      if (Object.is(next, h.present)) return;
+      if (transaction.current) {
+        publish({ ...h, present: next });
+        return;
+      }
+      const now = Date.now();
+      const combine =
+        !options.replace &&
+        mergeWindow > 0 &&
+        merge.current &&
+        now - merge.current.time <= mergeWindow &&
+        merge.current.group === options.group &&
+        h.past.length > 0 &&
+        h.future.length === 0;
+      const past =
+        options.replace || combine
+          ? [...h.past]
+          : [...h.past, { value: h.present, label: options.label }].slice(
+              -capacity,
+            );
+      if (combine && options.label !== undefined)
+        past[past.length - 1] = {
+          ...past[past.length - 1],
+          label: options.label,
         };
-      });
+      merge.current = options.replace
+        ? null
+        : { group: options.group, time: now };
+      publish({ past, present: next, future: [] });
     },
   );
-  const undo = useMemoizedFn(() =>
-    setHistory((h) =>
-      h.past.length
-        ? {
-            past: h.past.slice(0, -1),
-            present: h.past[h.past.length - 1]!,
-            future: [h.present, ...h.future],
-          }
-        : h,
-    ),
-  );
-  const redo = useMemoizedFn(() =>
-    setHistory((h) =>
-      h.future.length
-        ? {
-            past: [...h.past, h.present],
-            present: h.future[0]!,
-            future: h.future.slice(1),
-          }
-        : h,
-    ),
-  );
-  const reset = useMemoizedFn((value: T) =>
-    setHistory({ past: [], present: value, future: [] }),
-  );
-  const clear = useMemoizedFn(() =>
-    setHistory((h) => ({ ...h, past: [], future: [] })),
-  );
+  const undo = useMemoizedFn(() => {
+    if (transaction.current) return;
+    merge.current = null;
+    const h = current.current,
+      entry = h.past.at(-1);
+    if (entry)
+      publish({
+        past: h.past.slice(0, -1),
+        present: entry.value,
+        future: [{ value: h.present, label: entry.label }, ...h.future],
+      });
+  });
+  const redo = useMemoizedFn(() => {
+    if (transaction.current) return;
+    merge.current = null;
+    const h = current.current,
+      entry = h.future[0];
+    if (entry)
+      publish({
+        past: [...h.past, { value: h.present, label: entry.label }].slice(
+          -capacity,
+        ),
+        present: entry.value,
+        future: h.future.slice(1),
+      });
+  });
+  const reset = useMemoizedFn((value: T) => {
+    transaction.current = null;
+    merge.current = null;
+    publish({ past: [], present: value, future: [] });
+  });
+  const clear = useMemoizedFn(() => reset(current.current.present));
+  const beginTransaction = useMemoizedFn((label?: string) => {
+    if (transaction.current) return false;
+    merge.current = null;
+    transaction.current = { base: current.current, label };
+    publish({ ...current.current });
+    return true;
+  });
+  const commitTransaction = useMemoizedFn(() => {
+    const pending = transaction.current;
+    if (!pending) return false;
+    transaction.current = null;
+    const value = current.current.present;
+    if (Object.is(value, pending.base.present)) publish(pending.base);
+    else
+      publish({
+        past: [
+          ...pending.base.past,
+          { value: pending.base.present, label: pending.label },
+        ].slice(-capacity),
+        present: value,
+        future: [],
+      });
+    return true;
+  });
+  const rollbackTransaction = useMemoizedFn(() => {
+    const pending = transaction.current;
+    if (!pending) return false;
+    transaction.current = null;
+    publish(pending.base);
+    return true;
+  });
   return {
     value: history.present,
     set,
@@ -71,8 +156,16 @@ export function useUndoRedo<T>(
     redo,
     reset,
     clear,
-    canUndo: history.past.length > 0,
-    canRedo: history.future.length > 0,
+    canUndo: !transaction.current && history.past.length > 0,
+    canRedo: !transaction.current && history.future.length > 0,
+    past: history.past,
+    future: history.future,
+    undoLabel: history.past.at(-1)?.label,
+    redoLabel: history.future[0]?.label,
+    inTransaction: transaction.current !== null,
+    beginTransaction,
+    commitTransaction,
+    rollbackTransaction,
   };
 }
 

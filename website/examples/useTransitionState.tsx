@@ -51,6 +51,56 @@ function Case2() {
     </>
   );
 }
+
+function Enhanced1() {
+  const [open, setOpen] = React.useState(false),
+    [events, setEvents] = React.useState<string[]>([]);
+  const log = (name: string) => setEvents((e) => [...e, name]);
+  const s = useTransitionState(open, {
+    endEvent: "animationend",
+    enterDuration: 1500,
+    exitDuration: 1500,
+    onEnter: () => log("开始进入"),
+    onEntered: () => log("进入完成"),
+    onExit: () => log("开始退出"),
+    onExited: () => log("退出完成"),
+  });
+  return (
+    <>
+      <button onClick={() => setOpen((v) => !v)}>切换事件驱动动画</button>
+      <output>{s.phase}</output>
+      {s.mounted && (
+        <div
+          {...s.bind}
+          className="notice transition-demo"
+          data-phase={s.phase}
+        >
+          250ms 实际动画
+        </div>
+      )}
+      <p>{events.join(" → ")}</p>
+    </>
+  );
+}
+
+function Enhanced2() {
+  const [open, setOpen] = React.useState(false);
+  const s = useTransitionState(open, { enterDuration: 600, exitDuration: 600 });
+  return (
+    <>
+      <button onClick={() => setOpen((v) => !v)}>切换无动画内容</button>
+      <output>
+        {s.phase} · {s.mounted ? "已挂载" : "已卸载"}
+      </output>
+      {s.mounted && (
+        <div {...s.bind} className="notice">
+          没有 CSS 动画，仍能正确退出。
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -65,6 +115,18 @@ export default function Examples() {
         description="退出未完成时重新打开会取消旧的卸载计时器，不会被旧任务意外移除。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        title="动画结束与生命周期回调"
+        description="实际 CSS 动画为 250ms，兜底为 1500ms；绑定 animationend 后会提前完成并记录回调。"
+      >
+        <Enhanced1 />
+      </Scenario>
+      <Scenario
+        title="缺失结束事件的兜底"
+        description="不播放 CSS 动画，也不会触发结束事件；阶段仍按 600ms 兜底完成，快速反向切换取消旧计时。"
+      >
+        <Enhanced2 />
       </Scenario>
     </div>
   );
