@@ -2,6 +2,15 @@ import type { HookName } from "../catalog";
 import type { ApiDoc } from "./types";
 
 export const returnKinds = {
+  useQuery: "object",
+  useSteps: "object",
+  useDocumentTitle: "void",
+  useObjectURL: "object",
+  useTextareaAutoSize: "object",
+  useSpring: "object",
+  useTransitionState: "object",
+  useGesture: "object",
+
   useAnimate: "object",
   useAsyncAction: "object",
   useAsyncQueue: "object",
@@ -109,7 +118,7 @@ export function describeReturn(name: HookName, api: ApiDoc) {
         : kind === "function"
           ? "直接返回一个可调用函数。下方名称只是示例变量名，不是对象属性；通过该函数传入参数并接收结果。"
           : kind === "void"
-            ? "没有返回值（void）。此 Hook 通过订阅或定时器执行副作用，卸载时自动清理。"
+            ? "没有返回值（void）。此 Hook 执行副作用，并按其清理策略在卸载时解除订阅或恢复状态。"
             : "直接返回下列类型的值。表中的名称是接收结果的示例变量名，不是返回对象的属性。";
   return {
     kind,

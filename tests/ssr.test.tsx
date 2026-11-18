@@ -5,7 +5,7 @@ import * as hooks from "../src";
 it("exports all public hooks and server-renders every browser-dependent hook safely", () => {
   expect(
     Object.keys(hooks).filter((name) => name.startsWith("use")),
-  ).toHaveLength(59);
+  ).toHaveLength(67);
   function ServerExample() {
     hooks.useEventListener("click", () => {});
     hooks.useWindowSize();
@@ -24,6 +24,17 @@ it("exports all public hooks and server-renders every browser-dependent hook saf
     hooks.useRafLoop(() => {});
     hooks.useReducedMotion();
     hooks.useInterval(() => {}, 100);
+    hooks.useDocumentTitle("SSR title");
+    hooks.useObjectURL(null);
+    hooks.useTextareaAutoSize(null, "");
+    hooks.useSpring(1);
+    hooks.useTransitionState(false);
+    hooks.useGesture();
+    hooks.useSteps({ count: 3 });
+    hooks.useQuery(
+      hooks.createQueryStore(async () => 1),
+      "test",
+    );
     hooks.useRequest(async () => 1);
     hooks.useAsyncQueue();
     hooks.useUpload({ transport: async () => "ok" });

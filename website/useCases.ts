@@ -1,5 +1,4 @@
 import type { HookName } from "./catalog";
-
 export const useCases = {
   useBoolean: {
     overview:
@@ -895,6 +894,129 @@ export const useCases = {
         title: "请求失败与刷新恢复",
         description:
           "演示服务失败后保留页面控制，关闭失败模拟后 refresh 重新获取当前查询。",
+      },
+    ],
+  },
+  useQuery: {
+    overview:
+      "共享服务数据的缓存与请求状态，适合多个组件读取同一资源、列表详情复用和显式缓存失效。store 应保持稳定，SSR 按请求隔离。",
+    scenarios: [
+      {
+        title: "缓存键切换与复用",
+        description:
+          "A、B 使用不同缓存项，再次切回 A 会复用新鲜数据；null 暂停订阅。",
+      },
+      {
+        title: "手动查询与错误恢复",
+        description:
+          "enabled 为 false 时不自动请求；失败后显式重试，并可取消正在进行的请求。",
+      },
+    ],
+  },
+  useSteps: {
+    overview:
+      "组织分步表单或引导流程，允许在向前跳转前校验当前数据，后退、重置和新操作会隔离旧校验结果。",
+    scenarios: [
+      {
+        title: "异步校验与取消",
+        description:
+          "等待模拟校验时可取消；取消后即使旧服务结束，也不会跳到下一步。",
+      },
+      {
+        title: "步骤数量与跳转边界",
+        description: "指定索引跳转，减少总步骤数后当前索引会限制到有效范围。",
+      },
+    ],
+  },
+  useDocumentTitle: {
+    overview:
+      "更新页面或标签标题，适合路由名称、未读计数和临时预览标题；多个拥有者依次释放时恢复前一个标题。",
+    scenarios: [
+      {
+        title: "未读消息标题",
+        description: "改变未读数量，实时将数量反映到浏览器标题中。",
+      },
+      {
+        title: "临时标题与卸载恢复",
+        description:
+          "显示临时子组件后，它接管标题；关闭子组件恢复当前场景标题。",
+      },
+    ],
+  },
+  useObjectURL: {
+    overview:
+      "将本地文件或 Blob 变成浏览器可使用的临时 URL，适合图片预览和文件链接，并自动回收旧地址。",
+    scenarios: [
+      {
+        title: "选择本地图片预览",
+        description:
+          "选择文件后生成对象 URL，不上传到外部服务；替换文件会释放旧地址。",
+      },
+      {
+        title: "替换 Blob 与显式释放",
+        description:
+          "生成不同文本 Blob，观察地址变化；传入 null 后地址立即消失。",
+      },
+    ],
+  },
+  useTextareaAutoSize: {
+    overview:
+      "根据内容和容器宽度调整文本域高度，适合留言、聊天输入和编辑备注，超过最大行数后改为内部滚动。",
+    scenarios: [
+      {
+        title: "行数上限与内容收缩",
+        description: "输入或填入长内容，观察最大行数限制；清空后恢复最少行数。",
+      },
+      {
+        title: "禁用与手动重新测量",
+        description:
+          "关闭后恢复原内联高度，启用后重新测量；手动 resize 可用于外部字体和样式变化。",
+      },
+    ],
+  },
+  useSpring: {
+    overview:
+      "让数值以弹簧方式追踪目标，适合卡片回弹、进度和数字反馈；支持实时改变目标并尊重系统运动偏好。",
+    scenarios: [
+      {
+        title: "调整阻尼观察回弹",
+        description:
+          "低阻尼会有更明显回弹；高阻尼更平缓，系统减少动态效果时直接到达目标。",
+      },
+      {
+        title: "暂停、继续与立即到达",
+        description:
+          "暂停保留当前值；restart 从当前位置继续追踪目标，finish 直接吸附。",
+      },
+    ],
+  },
+  useTransitionState: {
+    overview:
+      "把显示状态与进入、退出动画时序连接起来，适合提示条、浮层和折叠区域，退出结束前保持内容挂载。",
+    scenarios: [
+      {
+        title: "不同进入和退出时长",
+        description: "进入较快、退出较慢，观察 exiting 阶段内容仍然存在。",
+      },
+      {
+        title: "快速反向切换",
+        description:
+          "退出未完成时重新打开会取消旧的卸载计时器，不会被旧任务意外移除。",
+      },
+    ],
+  },
+  useGesture: {
+    overview:
+      "识别单指针拖动位移和滑动方向，适合卡片拖动、画布平移和滑动翻页；原生数据拖放仍使用 useDrag/useDrop。",
+    scenarios: [
+      {
+        title: "受限拖动轴与取消",
+        description:
+          "只输出垂直位移，水平分量保持为零；取消后保留位移，重置归零。",
+      },
+      {
+        title: "禁用手势与业务等价按钮",
+        description: "禁用后不再开始新手势，业务操作仍可通过键盘按钮完成。",
       },
     ],
   },

@@ -1,1 +1,0 @@
-import{D as e,E as t,O as n,i as r}from"./index-DCWZ6ZOA.js";var i=n(e(),1),a=t();function o(){let e=(0,i.useRef)(null),t=r(e);return(0,a.jsxs)(`div`,{ref:e,className:`resize-pad`,children:[(0,a.jsx)(`p`,{children:`拖动右下角调整容器大小`}),(0,a.jsxs)(`output`,{children:[Math.round(t.width),` × `,Math.round(t.height),` px`]})]})}export{o as default};

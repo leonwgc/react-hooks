@@ -10,3 +10,8 @@ export * from "./web/browser.js";
 export * from "./web/queue.js";
 export * from "./web/list.js";
 export * from "./web/sortable.js";
+export * from "./data/query.js";
+export * from "./form/steps.js";
+export * from "./browser/document.js";
+export * from "./animation/motion.js";
+export * from "./web/gesture.js";

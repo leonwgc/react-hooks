@@ -14,6 +14,7 @@ import { SyntaxCode, GuideCode } from "./SyntaxCode";
 import SiteSearch from "./SiteSearch";
 import { useCases } from "./useCases";
 import Guide from "./content/guide.mdx";
+import demoHelpersSource from "./demos/webHelpers.ts?raw";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
 
@@ -171,7 +172,7 @@ function Home() {
       <section className="hero container">
         <div className="hero-copy">
           <a className="eyebrow pill" href="#/guide">
-            <span className="live-dot" /> v0.3.0 · 为 React 18 / 19 而生{" "}
+            <span className="live-dot" /> v0.4.0 · 为 React 18 / 19 而生{" "}
             <span>→</span>
           </a>
           <h1>
@@ -182,7 +183,7 @@ function Home() {
           <p className="hero-description">
             从一个开关，到完整的交互。
             <br />
-            59 个轻量、类型安全的 React Hooks，
+            67 个轻量、类型安全的 React Hooks，
             <br className="desktop-break" />
             为每一种 Web 体验提供可靠的起点。
           </p>
@@ -240,7 +241,7 @@ function Home() {
       <div className="stats-strip">
         <div className="container stats-grid">
           <div>
-            <strong>59</strong>
+            <strong>67</strong>
             <span>精心组织的 Hooks</span>
           </div>
           <div>
@@ -362,10 +363,14 @@ function HookPage({ name }: { name: string }) {
       </article>
     );
   const index = catalog.indexOf(hook);
-  const source = sources[`./demos/${hook.name}.tsx`].replace(
-    /(["'])\.\.\/\.\.\/src\1/g,
-    '"@leonwgc/react-hooks"',
-  );
+  const rawSource = sources[`./demos/${hook.name}.tsx`];
+  const source =
+    rawSource
+      .replace(/(["'])\.\.\/\.\.\/src\1/g, '"@leonwgc/react-hooks"')
+      .replace(/import \{ delay \} from [^;]+;\n?/, "") +
+    (rawSource.includes("webHelpers")
+      ? "\n// 可取消的本地延时\n" + demoHelpersSource
+      : "");
   const usage = useCases[hook.name];
   return (
     <>
@@ -526,7 +531,7 @@ function App() {
       <header className="site-header">
         <div className="header-inner">
           <Logo />
-          <span className="version">v0.3.0</span>
+          <span className="version">v0.4.0</span>
           <nav className="top-nav" aria-label="主导航">
             <a className={isHome ? "active" : ""} href="#/">
               概览
@@ -622,7 +627,7 @@ function App() {
                 );
               })}
               <div className="sidebar-footer">
-                59 HOOKS · ENDLESS POSSIBILITIES
+                67 HOOKS · ENDLESS POSSIBILITIES
               </div>
             </aside>
             <div className="doc-layout-content">

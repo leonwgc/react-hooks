@@ -353,5 +353,53 @@ export const catalog = [
     description: "为列表提供原生拖放和可访问的键盘排序。",
     note: "把 getItemProps 绑定到可聚焦的行。空格拾取，方向键/Home/End 调整，Enter/空格确认，Esc 恢复原有顺序；保留并发编辑后的数据和新增记录。原生拖放仅接受当前实例，放下时提交顺序。announcement 绑定 role=status；触屏或不支持原生拖放的浏览器应提供上移/下移按钮。",
   },
+  {
+    name: "useQuery",
+    category: "数据与列表",
+    description: "跨组件共享查询缓存，去重请求并显式刷新失效数据。",
+    note: "显式创建 store；同键共享结果与取消。SSR 应按请求隔离 store，不提供自动服务端注水。",
+  },
+  {
+    name: "useSteps",
+    category: "表单",
+    description: "为分步表单提供导航、前进校验和完成记录。",
+    note: "索引从 0 开始；只校验向前离开的当前步骤，后退无需校验；过期校验不会修改状态。",
+  },
+  {
+    name: "useDocumentTitle",
+    category: "浏览器与视口",
+    description: "同步浏览器标题，并在卸载时恢复上一个拥有者。",
+    note: "按副作用注册顺序管理多个标题拥有者；不替代框架服务端 head 管理。",
+  },
+  {
+    name: "useObjectURL",
+    category: "交互与存储",
+    description: "为 File 和 Blob 创建可自动回收的预览地址。",
+    note: "对象引用变化或卸载时释放 URL，不自动上传、持久化或下载。",
+  },
+  {
+    name: "useTextareaAutoSize",
+    category: "表单",
+    description: "让文本域随内容自动增高，并限制最大行数。",
+    note: "依据真实 scrollHeight 测量；绑定 textarea，保持 value 一致，字体变化可手动 resize。",
+  },
+  {
+    name: "useSpring",
+    category: "动画",
+    description: "使用阻尼弹簧追踪数值目标，支持停止和吸附。",
+    note: "默认尊重减少动态效果；后台恢复限制帧间隔，卸载释放 RAF。",
+  },
+  {
+    name: "useTransitionState",
+    category: "动画",
+    description: "管理进入、退出阶段与延迟卸载。",
+    note: "只管理生命周期，CSS 动画由调用方实现，配置时长须与 CSS 一致。",
+  },
+  {
+    name: "useGesture",
+    category: "交互与存储",
+    description: "统一单指针拖动、滑动方向与速度。",
+    note: "只处理主指针；保留 bind.style.touchAction，并提供键盘等价操作。",
+  },
 ] as const;
 export type HookName = (typeof catalog)[number]["name"];

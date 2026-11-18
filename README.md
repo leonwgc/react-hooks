@@ -1,6 +1,6 @@
 # Web Hooks
 
-面向各类 Web 站点的 **59 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
+面向各类 Web 站点的 **67 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
 
 [文档与在线演示](https://leonwgc.github.io/react-hooks/) · [全部源码](https://github.com/leonwgc/react-hooks/tree/master/src) · [反馈问题](https://github.com/leonwgc/react-hooks/issues)
 
@@ -14,7 +14,7 @@
 - 请求取消、竞态隔离、轮询；搜索、分页、排序与跨页选择。
 - 原生 Web Animations API、逐帧循环和减少动态效果偏好。
 - 表单字段、嵌套路径、同步/异步/跨字段校验、动态字段数组。
-- 中文文档、59 个可交互示例、示例源码与完整列表编辑场景。
+- 中文文档、67 个基础演示与 134 组补充交互场景、示例源码与完整列表编辑场景。
 - 单个 npm 项目，直接使用目录组织；**不使用 workspaces**。库与站点都由 **Vite 8+** 构建。
 
 ## 安装
@@ -33,7 +33,7 @@ cd react-hooks
 npm install
 npm pack
 # 在消费项目中运行，替换为真实路径
-npm install /path/to/leonwgc-react-hooks-0.3.0.tgz
+npm install /path/to/leonwgc-react-hooks-0.4.0.tgz
 ```
 
 ## 使用
@@ -102,20 +102,20 @@ async function saveEmail(email: string) {
 
 ## Hooks 清单
 
-| 分类              | Hooks                                                                                                                                            |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| 状态管理（6）     | `useBoolean`、`useToggle`、`useSetState`、`useControllableState`、`useLatest`、`useMemoizedFn`                                                   |
-| 副作用与性能（4） | `useDebounce`、`useDebounceFn`、`useThrottleFn`、`useInterval`                                                                                   |
-| 浏览器与视口（8） | `useEventListener`、`useMediaQuery`、`useWindowSize`、`useElementSize`、`useIntersectionObserver`、`useScroll`、`useOnline`、`usePageVisibility` |
-| 交互与存储（7）   | `useClickOutside`、`useKeyPress`、`useClipboard`、`useLocalStorageState`、`useSessionStorageState`、`useUrlState`、`useCountdown`                |
-| 数据与列表（5）   | `useRequest`、`usePagination`、`useSearch`、`useTable`、`useSelection`                                                                           |
-| 应用交互（5）     | `useDisclosure`、`useEditor`、`useAsyncAction`、`useDirty`、`usePermission`                                                                      |
-| 动画（3）         | `useAnimate`、`useRafLoop`、`useReducedMotion`                                                                                                   |
-| 表单（2）         | `useForm`、`useFieldArray`                                                                                                                       |
+| 分类               | Hooks                                                                                                                                                                                                                                                                         |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 数据与列表（9）    | `useInfiniteScroll`、`useVirtualList`、`useUpload`、`useRequest`、`usePagination`、`useSearch`、`useTable`、`useSelection`、`useQuery`                                                                                                                                        |
+| 状态管理（7）      | `useUndoRedo`、`useBoolean`、`useToggle`、`useSetState`、`useControllableState`、`useLatest`、`useMemoizedFn`                                                                                                                                                                 |
+| 应用交互（6）      | `useLeaveConfirm`、`useDisclosure`、`useEditor`、`useAsyncAction`、`useDirty`、`usePermission`                                                                                                                                                                                |
+| 副作用与性能（5）  | `useAsyncQueue`、`useDebounce`、`useDebounceFn`、`useThrottleFn`、`useInterval`                                                                                                                                                                                               |
+| 交互与存储（15）   | `useDrag`、`useDrop`、`useBroadcastChannel`、`useFocusWithin`、`useLongPress`、`useClickOutside`、`useKeyPress`、`useClipboard`、`useLocalStorageState`、`useSessionStorageState`、`useUrlState`、`useCountdown`、`useSortable`、`useObjectURL`、`useGesture`                 |
+| 浏览器与视口（15） | `useFullscreen`、`useEventSource`、`useDownload`、`useImage`、`useTextSelection`、`useMutationObserver`、`useEventListener`、`useMediaQuery`、`useWindowSize`、`useElementSize`、`useIntersectionObserver`、`useScroll`、`useOnline`、`usePageVisibility`、`useDocumentTitle` |
+| 动画（5）          | `useAnimate`、`useRafLoop`、`useReducedMotion`、`useSpring`、`useTransitionState`                                                                                                                                                                                             |
+| 表单（5）          | `useForm`、`useFieldArray`、`useFormField`、`useSteps`、`useTextareaAutoSize`                                                                                                                                                                                                 |
 
 每个 Hook 的 TypeScript 调用签名、泛型含义与约束、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。参数类型列支持就地展开泛型说明，例如 `Cursor` 的推断方式、可选类型及分页结束标记。
 
-每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。本次新增 118 组演示，可分别展开、收起和重新开始，并查看包含辅助容器的源码。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
+每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。合计 134 组补充演示，可分别展开、收起和重新开始，并查看包含辅助容器的源码。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
 
 ## 重要约定
 
@@ -125,8 +125,8 @@ async function saveEmail(email: string) {
 - **存储**：只保存 JSON 可序列化值，解析或写入失败通过 `error` 呈现。默认比较器处理普通对象、数组、Date 和基本类型，不处理循环引用；复杂对象需自定义比较器。
 - **URL**：`useUrlState` 管理浏览器查询参数，保留 hash 和 history.state；其他路由器应使用其官方适配能力。不要把敏感信息写入 URL。
 - **SSR**：浏览器数据挂载后更新；尺寸初始为 0，存储初始为默认值。Next.js 中在客户端组件调用。Strict Mode 可能重复触发自动请求，第一轮会取消；写操作应由明确的用户动作触发。
-- **动画**：`useAnimate` 默认遵循系统减少动态效果偏好；`useRafLoop` 需要调用方自行结合该偏好。首版不提供弹簧引擎、复杂时间线或布局动画。
-- **职责**：权限 Hook 只控制 UI，接口权限由服务端验证。弹窗 Hook 不代替焦点管理；字段 Hook 不代替业务校验。请求层不包含跨组件缓存或乐观更新。
+- **动画**：`useAnimate` 默认遵循系统减少动态效果偏好；`useRafLoop` 需要调用方自行结合该偏好。useSpring 提供数值弹簧，useTransitionState 管理进入/退出时序；不提供复杂时间线或布局动画。
+- **职责**：权限 Hook 只控制 UI，接口权限由服务端验证。弹窗 Hook 不代替焦点管理；字段 Hook 不代替业务校验。useRequest 管理实例内请求；useQuery 通过显式 store 提供跨组件缓存，不包含自动乐观回滚。
 
 ## 本地开发
 
@@ -150,8 +150,8 @@ website/                # 文档站源码
   content/              # MDX 使用指南
   demos/                # 每个 Hook 的独立可运行示例
   catalog.ts            # 文档目录与行为边界
-  api/                  # 59 个 Hooks 的逐字段 API 文档及返回结构
-  examples/             # 118 组独立补充场景与可重置演示容器
+  api/                  # 67 个 Hooks 的逐字段 API 文档及返回结构
+  examples/             # 134 组独立补充场景与可重置演示容器
   useCases.ts           # 每个 Hook 的功能描述与使用场景
   DEMO_COVERAGE.md       # 演示场景覆盖清单
 docs/                   # Vite 生成的 GitHub Pages 发布产物
@@ -191,6 +191,17 @@ Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` �
 - 新增 `useSortable`：原生拖放、键盘排序与可访问状态播报。
 
 详见站点各 Hook 的参数、边界说明和可交互示例。
+
+## 第四阶段（v0.4.0）
+
+新增 8 个 Hooks，总数达到 67：
+
+- `useQuery` + `createQueryStore`：共享缓存、同键请求去重、失效刷新与取消；store 应保持稳定，服务端按请求隔离。
+- `useSteps`：分步导航、同步/异步前进校验、取消与完成记录。
+- `useDocumentTitle`、`useObjectURL`、`useTextareaAutoSize`：标题恢复、本地预览 URL 回收、文本域自增高。
+- `useSpring`、`useTransitionState`、`useGesture`：数值弹簧、延迟卸载、单指针拖动与滑动。
+
+每个新增 Hook 都包含完整 TypeScript API、使用场景、基础示例和两组补充演示。查询演示使用本地模拟服务；过渡 Hook 只管理时序，CSS 动画由调用方提供；手势操作提供按钮作为键盘等价入口。
 
 ## 参考与许可证
 

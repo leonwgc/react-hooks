@@ -1939,6 +1939,43 @@ dialog h3 {
   display: grid;
   gap: 18px;
 }
+.transition-demo {
+  animation-duration: 250ms;
+  animation-fill-mode: both;
+
+  &[data-phase="entering"] {
+    animation-name: demo-panel-enter;
+  }
+  &[data-phase="exiting"] {
+    animation-name: demo-panel-exit;
+  }
+}
+@keyframes demo-panel-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes demo-panel-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .transition-demo {
+    animation-name: none;
+  }
+}
+
 .demo-scenario {
   min-width: 0;
   border: 1px solid var(--line);

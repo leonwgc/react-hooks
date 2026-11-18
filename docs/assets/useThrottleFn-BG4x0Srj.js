@@ -1,1 +1,0 @@
-import{D as e,E as t,O as n}from"./index-DCWZ6ZOA.js";import{i as r}from"./effects-D2g1EDw3.js";var i=n(e(),1),a=t();function o(){let[e,t]=(0,i.useState)(0),n=r(()=>t(e=>e+1),1e3);return(0,a.jsxs)(`div`,{className:`demo-stack`,children:[(0,a.jsx)(`button`,{onClick:n.run,children:`连续点击，每秒最多执行一次`}),(0,a.jsxs)(`output`,{children:[`已执行 `,e,` 次，保留最后一次调用`]})]})}export{o as default};

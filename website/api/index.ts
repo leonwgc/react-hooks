@@ -9,8 +9,11 @@ import { queueDocs } from "./queue";
 import { webBrowserDocs } from "./web-browser";
 import { webInteractionDocs } from "./web-interaction";
 
+import { phase4Docs } from "./phase4";
+
 // Exhaustive: a newly added Hook must also have a complete API entry.
 export const apiDocs: Record<HookName, ApiDoc> = {
+  ...phase4Docs,
   ...coreDocs,
   ...browserDocs,
   ...dataDocs,
