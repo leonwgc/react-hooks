@@ -59,22 +59,21 @@ test("all hook routes render their own demo and source without page errors", asy
   expect(errors).toEqual([]);
 });
 
-test("hook search filters navigation", async ({ page }) => {
+test("sidebar lists every hook without a duplicate search input", async ({
+  page,
+}) => {
   await page.goto("#/hooks/useBoolean");
-  await page.getByRole("textbox", { name: "搜索 Hooks" }).fill("useForm");
-  await expect(page.locator(".nav-group a")).toHaveCount(2);
+  await expect(page.locator("#docs-sidebar input")).toHaveCount(0);
+  await expect(page.locator(".nav-group a")).toHaveCount(catalog.length);
+  await expect(
+    page.getByRole("button", { name: "打开站点搜索" }),
+  ).toBeVisible();
   await page
     .locator(".nav-group")
     .getByRole("link", { name: "useForm", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "useForm", exact: true }),
-  ).toBeVisible();
-  await page
-    .getByRole("textbox", { name: "搜索 Hooks" })
-    .fill("nothing-matches");
-  await expect(
-    page.getByText("没有匹配的 Hooks", { exact: true }),
   ).toBeVisible();
 });
 
@@ -213,7 +212,6 @@ test("mobile pages fit viewport and navigation remains accessible", async ({
   });
   await page.goto("#/hooks/useTable");
   await page.getByRole("button", { name: "目录", exact: true }).click();
-  await page.getByRole("textbox", { name: "搜索 Hooks" }).fill("useForm");
   await page
     .locator(".nav-group")
     .getByRole("link", { name: "useForm", exact: true })
@@ -642,11 +640,8 @@ test("site search supports Command K, Control K, keyboard selection and focus re
   await trigger.click();
   await page.keyboard.press("Escape");
   await expect(trigger).toBeFocused();
-  const sidebarSearch = page.getByRole("textbox", {
-    name: "搜索 Hooks",
-    exact: true,
-  });
-  await sidebarSearch.focus();
+  const fieldInput = page.locator(".demo-content input").first();
+  await fieldInput.focus();
   await page.keyboard.press("Control+k");
   await expect(input).toBeFocused();
   await input.fill("请求");
@@ -655,7 +650,7 @@ test("site search supports Command K, Control K, keyboard selection and focus re
   ).toBeVisible();
   await page.keyboard.press("Control+k");
   await expect(dialog).not.toBeVisible();
-  await expect(sidebarSearch).toBeFocused();
+  await expect(fieldInput).toBeFocused();
 });
 
 test("site search fits narrow screens and supports pointer navigation in both themes", async ({

@@ -3,7 +3,6 @@ import {
   Suspense,
   lazy,
   useEffect,
-  useMemo,
   useState,
   type ComponentType,
   type ReactNode,
@@ -413,7 +412,6 @@ function HookPage({ name }: { name: string }) {
 }
 function App() {
   const [route, setRoute] = useState(() => location.hash.slice(1) || "/");
-  const [search, setSearch] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const theme = useLocalStorageState<"light" | "dark">(
     "web-hooks:site-theme",
@@ -439,15 +437,6 @@ function App() {
         : "为每一种 Web 体验";
     document.title = `${name} · Web Hooks`;
   }, [route]);
-  const filtered = useMemo(
-    () =>
-      catalog.filter((hook) =>
-        `${hook.name} ${hook.description} ${hook.category}`
-          .toLowerCase()
-          .includes(search.toLowerCase().trim()),
-      ),
-    [search],
-  );
   const isHome = route === "/";
   return (
     <>
@@ -526,22 +515,6 @@ function App() {
               className={`sidebar ${menuOpen ? "open" : ""}`}
               aria-label="文档导航"
             >
-              <label className="search-box">
-                <span aria-hidden="true">⌕</span>
-                <input
-                  aria-label="搜索 Hooks"
-                  placeholder="搜索 Hooks…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-                {search ? (
-                  <button aria-label="清空搜索" onClick={() => setSearch("")}>
-                    ×
-                  </button>
-                ) : (
-                  <kbd>59</kbd>
-                )}
-              </label>
               <a
                 className={`guide-link ${route === "/guide" ? "active" : ""}`}
                 href="#/guide"
@@ -549,7 +522,7 @@ function App() {
                 入门指南 <span>↗</span>
               </a>
               {categories.map((category) => {
-                const list = filtered.filter(
+                const list = catalog.filter(
                   (hook) => hook.category === category,
                 );
                 return (
@@ -575,7 +548,6 @@ function App() {
                   )
                 );
               })}
-              {!filtered.length && <p className="empty">没有匹配的 Hooks</p>}
               <div className="sidebar-footer">
                 59 HOOKS · ENDLESS POSSIBILITIES
               </div>

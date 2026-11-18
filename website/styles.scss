@@ -672,43 +672,11 @@ kbd {
   padding: 28px 20px 40px 28px;
   scrollbar-width: thin;
 }
-.search-box {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 0 10px;
-}
-.search-box > span {
-  font-size: 23px;
-  color: var(--muted);
-}
-.search-box input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  font-size: 11px;
-  padding: 8px 0;
-  min-height: 35px;
-}
-.search-box button {
-  background: none;
-  color: var(--muted) !important;
-  min-height: 20px;
-  padding: 0;
-}
-.search-box kbd {
-  border: 0;
-  font-size: 9px;
-}
 .guide-link {
   display: flex;
   justify-content: space-between;
   padding: 12px 10px;
-  margin-block: 15px 18px;
+  margin-block: 0 18px;
   font-size: 12px;
 }
 .guide-link.active {
