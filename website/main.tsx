@@ -16,6 +16,8 @@ import Guide from "./content/guide.mdx";
 import { useLocalStorageState } from "../src";
 import "./styles.scss";
 
+const ApiReference = lazy(() => import("./ApiReference"));
+
 const modules = import.meta.glob<{ default: ComponentType }>("./demos/*.tsx");
 const sources = import.meta.glob<string>("./demos/*.tsx", {
   query: "?raw",
@@ -345,32 +347,9 @@ function HookPage({ name }: { name: string }) {
         </section>
         <section id="api">
           <h2>API</h2>
-          <CodeBlock code={hook.signature} />
-          <div className="table-wrap">
-            <table className="api-table">
-              <thead>
-                <tr>
-                  <th>参数</th>
-                  <th>说明</th>
-                </tr>
-              </thead>
-              <tbody>
-                {hook.parameters.map(([parameter, description]) => (
-                  <tr key={parameter}>
-                    <td>
-                      <code>{parameter}</code>
-                    </td>
-                    <td>{description}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <h3>返回值</h3>
-          <p className="return-values">{hook.returns}</p>
-          <p className="muted">
-            完整泛型与字段类型由包内 TypeScript 声明提供，可在编辑器中查看。
-          </p>
+          <Suspense fallback={<p className="muted">正在加载 API 文档…</p>}>
+            <ApiReference name={hook.name} CodeBlock={CodeBlock} />
+          </Suspense>
         </section>
         <section id="behavior">
           <h2>行为与边界</h2>

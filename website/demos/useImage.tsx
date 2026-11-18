@@ -12,7 +12,7 @@ export default function Demo() {
   });
   return (
     <div className="demo-stack">
-      <label>
+      <label className="check">
         <input
           type="checkbox"
           checked={broken}

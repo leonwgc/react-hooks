@@ -1,0 +1,1 @@
+import{D as e,E as t}from"./index-Ddr0ENXo.js";import{i as n}from"./effects-CC2PV_bs.js";var r=e(),i=t();function a(){let[e,t]=(0,r.useState)(0),a=n(()=>t(e=>e+1),1e3);return(0,i.jsxs)(`div`,{className:`demo-stack`,children:[(0,i.jsx)(`button`,{onClick:a.run,children:`连续点击，每秒最多执行一次`}),(0,i.jsxs)(`output`,{children:[`已执行 `,e,` 次，保留最后一次调用`]})]})}export{a as default};

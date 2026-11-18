@@ -146,7 +146,7 @@ export default function Demo() {
         <span className="muted">已选 {selection.selectedKeys.length} 项</span>
       </div>
       <div className="demo-row">
-        <label>
+        <label className="check">
           <input
             type="checkbox"
             checked={table.columns.visible.includes("category")}

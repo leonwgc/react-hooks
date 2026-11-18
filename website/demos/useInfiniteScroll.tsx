@@ -33,7 +33,7 @@ export default function Demo() {
           <option>教程</option>
         </select>
       </label>
-      <label>
+      <label className="check">
         <input
           type="checkbox"
           checked={fail}

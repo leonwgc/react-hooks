@@ -113,7 +113,7 @@ async function saveEmail(email: string) {
 | 动画（3）         | `useAnimate`、`useRafLoop`、`useReducedMotion`                                                                                                   |
 | 表单（2）         | `useForm`、`useFieldArray`                                                                                                                       |
 
-每个 Hook 的参数、返回值、交互演示与行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。
+每个 Hook 的调用参数、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。
 
 ## 重要约定
 
@@ -147,7 +147,8 @@ src/                    # 按职责分组的 Hooks 与内部工具
 website/                # 文档站源码
   content/              # MDX 使用指南
   demos/                # 每个 Hook 的独立可运行示例
-  catalog.ts            # 文档目录、API 与边界说明
+  catalog.ts            # 文档目录与行为边界
+  api/                  # 59 个 Hooks 的逐字段 API 文档，按模块组织
 docs/                   # Vite 生成的 GitHub Pages 发布产物
 tests/                  # 行为测试、SSR、类型约束及浏览器测试
 .github/workflows/      # React 18/19 与文档站验证

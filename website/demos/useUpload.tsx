@@ -35,7 +35,7 @@ export default function Demo() {
         </label>
         {drop.over ? "松开放入文件" : "也可拖入文件"}
       </div>
-      <label>
+      <label className="check">
         <input
           type="checkbox"
           checked={fail}

@@ -90,7 +90,7 @@ function AdvancedRequest() {
   return (
     <section className="demo-stack">
       <h3>重试、超时与自动刷新</h3>
-      <label>
+      <label className="check">
         <input
           type="checkbox"
           checked={slow}
@@ -98,7 +98,7 @@ function AdvancedRequest() {
         />
         模拟每次请求超时
       </label>
-      <label>
+      <label className="check">
         <input
           type="checkbox"
           checked={auto}

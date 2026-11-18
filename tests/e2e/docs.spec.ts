@@ -1,4 +1,6 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync, readdirSync } from "node:fs";
+import { join } from "node:path";
 import { catalog } from "../../website/catalog";
 
 test("home, theme and guide work", async ({ page }) => {
@@ -46,6 +48,13 @@ test("all hook routes render their own demo and source without page errors", asy
     await expect(
       page.getByRole("heading", { name: "行为与边界", exact: true }),
     ).toBeVisible();
+    await expect(page.locator("#api-parameters")).toBeAttached();
+    await expect(page.locator("#api-returns")).toBeAttached();
+    await expect(page.locator("#api .api-detail-table").first()).toBeAttached();
+    await expect(page.locator("#api .api-intro a")).toHaveAttribute(
+      "href",
+      /^https:\/\/github\.com\/leonwgc\/react-hooks\/blob\/master\/src\//,
+    );
   }
   expect(errors).toEqual([]);
 });
@@ -488,4 +497,108 @@ test("dynamic list preserves anchor when adding earlier messages", async ({
   expect(
     Math.abs(after!.y - containerAfter!.y - (before!.y - containerBefore!.y)),
   ).toBeLessThan(2);
+});
+
+test("API reference separates configuration, result types and methods at desktop and mobile sizes", async ({
+  page,
+}) => {
+  const row = (name: string, section = "#api") =>
+    page
+      .locator(section)
+      .getByRole("row")
+      .filter({ has: page.getByRole("rowheader", { name, exact: true }) });
+  for (const width of [1280, 894, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto("#/hooks/useRequest");
+    const retry = row("retry");
+    await expect(retry).toContainText("0");
+    await expect(row("defaultParams")).toContainText("undefined");
+    await expect(row("runAsync", "#api-methods")).toContainText("Promise<T>");
+    await expect(row("loading", "#api-returns")).toContainText("boolean");
+    await page
+      .getByRole("button", { name: "options · 重试与超时", exact: true })
+      .click();
+    await expect(retry).toBeInViewport();
+    if (width === 390) {
+      await expect(retry).toHaveCSS("display", "block");
+      const nameBox = await row("retryDelay")
+        .getByRole("rowheader")
+        .boundingBox();
+      expect(nameBox!.width).toBeGreaterThan(250);
+    }
+    expect(
+      await page.evaluate(() => document.documentElement.scrollWidth),
+    ).toBeLessThanOrEqual(width);
+  }
+  await page.goto("#/hooks/useForm");
+  await expect(row("setFieldTouched", "#api-methods")).toContainText("boolean");
+  await expect(row("setFieldError", "#api-methods")).toContainText("undefined");
+  await expect(row("control", "#api-returns")).toContainText("FormControl<T>");
+});
+
+const checkboxDemos = readdirSync(join(process.cwd(), "website/demos"))
+  .filter(
+    (file) =>
+      file.endsWith(".tsx") &&
+      /type="checkbox"/.test(
+        readFileSync(join(process.cwd(), "website/demos", file), "utf8"),
+      ),
+  )
+  .map((file) => file.replace(".tsx", ""));
+
+test("every checkbox demo keeps labels aligned and supports label clicks and keyboard toggles", async ({
+  page,
+}) => {
+  test.setTimeout(120000);
+  for (const width of [894, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const theme of ["light", "dark"]) {
+      await page.goto("");
+      // Use the actual theme control so this check is independent of storage naming.
+      const toggle = page.getByRole("button", {
+        name: theme === "dark" ? "切换深色主题" : "切换浅色主题",
+      });
+      if (await toggle.count()) await toggle.click();
+      for (const name of checkboxDemos) {
+        await page.goto(`#/hooks/${name}`);
+        if (name === "useTable")
+          await expect(
+            page.getByRole("checkbox", { name: "选择文章 1", exact: true }),
+          ).toBeVisible();
+        const checkboxes = page.locator('.demo-content input[type="checkbox"]');
+        await expect(checkboxes.first()).toBeVisible();
+        const count = await checkboxes.count();
+        for (let i = 0; i < count; i++) {
+          const checkbox = checkboxes.nth(i);
+          const label = checkbox.locator("xpath=ancestor::label[1]");
+          const before = await checkbox.isChecked();
+          const box = await checkbox.boundingBox();
+          expect(box?.width, `${name} checkbox width`).toBe(16);
+          expect(box?.height, `${name} checkbox height`).toBe(16);
+          if (await label.count()) {
+            await expect(label).toHaveCSS("flex-direction", "row");
+            await expect(label).toHaveCSS("align-items", "center");
+            // Click the text end of the label, outside the checkbox itself.
+            const bounds = await label.boundingBox();
+            await label.click({
+              position: { x: bounds!.width - 2, y: bounds!.height / 2 },
+            });
+          } else {
+            await expect(checkbox).toHaveAttribute("aria-label", /.+/);
+            await checkbox.click();
+          }
+          await expect(checkbox).toBeChecked({ checked: !before });
+          await page.keyboard.press("Tab");
+          await checkbox.focus();
+          await expect(checkbox).toBeFocused();
+          await expect(checkbox).toHaveCSS("outline-style", "solid");
+          await checkbox.press("Space");
+          await expect(checkbox).toBeChecked({ checked: before });
+        }
+        expect(
+          await page.evaluate(() => document.documentElement.scrollWidth),
+        ).toBeLessThanOrEqual(width);
+      }
+    }
+  }
 });

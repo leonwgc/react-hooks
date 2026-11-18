@@ -115,6 +115,9 @@ input[type="checkbox"] {
   min-height: 0;
   padding: 0;
   margin: 0;
+  flex: 0 0 16px;
+  vertical-align: middle;
+  cursor: pointer;
 }
 :focus-visible {
   outline: 3px solid var(--accent);
@@ -1086,9 +1089,9 @@ td {
 .demo-row .grow {
   flex: 1;
 }
-.demo-stack label,
+.demo-stack label:not(.check),
 .demo-row label:not(.check),
-.field-row label {
+.field-row label:not(.check) {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -1096,13 +1099,17 @@ td {
   font-weight: 500;
 }
 .check {
-  display: flex !important;
-  flex-direction: row !important;
+  display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px !important;
+  gap: 8px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 24px;
+  cursor: pointer;
   font-size: 12px;
   color: var(--muted);
-  font-weight: 400 !important;
+  font-weight: 400;
 }
 output {
   font-size: 12px;
@@ -1635,5 +1642,124 @@ dialog h3 {
   li[data-sorting] {
     border-color: var(--accent);
     box-shadow: 0 0 0 2px var(--accent-soft);
+  }
+}
+
+.api-reference {
+  .api-intro {
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .api-intro a {
+    color: var(--accent);
+    margin-left: 8px;
+    white-space: nowrap;
+  }
+  .api-jump-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 20px 0;
+  }
+  .api-jump-links button {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--line);
+    font-size: 12px;
+    min-height: 32px;
+    padding: 6px 10px;
+  }
+  .api-group {
+    margin-top: 28px;
+    scroll-margin-top: 96px;
+  }
+  .api-detail-table {
+    table-layout: fixed;
+  }
+  .api-detail-table th,
+  .api-detail-table td {
+    vertical-align: top;
+    overflow-wrap: anywhere;
+  }
+  .api-detail-table th:first-child {
+    width: 20%;
+  }
+  .api-detail-table th:nth-child(2) {
+    width: 35%;
+  }
+  .api-parameter-table th:nth-child(2) {
+    width: 27%;
+  }
+  .api-parameter-table thead th:nth-child(3) {
+    width: 16%;
+  }
+  .api-detail-table tbody th {
+    background: transparent;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  .api-detail-table code {
+    white-space: pre-wrap;
+    font-size: 11px;
+    line-height: 1.8;
+  }
+  .api-detail-table td {
+    color: var(--muted);
+  }
+  .api-notes ul {
+    padding-left: 20px;
+    color: var(--muted);
+    font-size: 13px;
+  }
+  .api-notes li + li {
+    margin-top: 12px;
+  }
+}
+@media (max-width: 700px) {
+  .api-reference {
+    .api-detail-table,
+    .api-detail-table tbody {
+      display: block;
+    }
+    .api-detail-table thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+    .api-detail-table tr {
+      display: block;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      padding: 12px;
+      background: var(--surface);
+    }
+    .api-detail-table tbody th,
+    .api-detail-table td {
+      display: block;
+      width: auto;
+      border: 0;
+      padding: 4px 0;
+    }
+    .api-detail-table tbody th:first-child {
+      width: auto;
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .api-detail-table td::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+    .api-detail-table td:last-child::before {
+      content: none;
+    }
+    .api-detail-table code {
+      font-size: 12px;
+    }
   }
 }
