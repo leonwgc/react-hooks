@@ -68,7 +68,7 @@ export const queueDocs = {
             type: "number",
             defaultValue: "0",
             description:
-              "普通失败后额外重试次数；有限非负整数。取消与超时不重试。",
+              "普通失败后额外重试次数；有限非负整数。取消不重试；超时仅在 retryOnTimeout 为 true 时重试。",
           },
           {
             name: "retryDelay",
@@ -82,7 +82,14 @@ export const queueDocs = {
             type: "number",
             defaultValue: "undefined",
             description:
-              "每次实际执行的超时毫秒，有限且 > 0 启用；到期以 QueueTimeoutError 拒绝并取消 signal。超时为终态。",
+              "每次实际执行的超时毫秒，有限且 > 0 启用；到期取消 signal，默认以 QueueTimeoutError 拒绝（终态）。",
+          },
+          {
+            name: "retryOnTimeout",
+            type: "boolean",
+            defaultValue: "false",
+            description:
+              "为 true 时超时也计入 retry 重试；被超时的旧尝试即使稍后返回，其结果也会被忽略。",
           },
         ],
       },
@@ -101,7 +108,7 @@ export const queueDocs = {
             type: "number",
             defaultValue: "继承 options.retry",
             description:
-              "普通失败后额外重试次数；有限非负整数。取消与超时不重试。 在添加时快照，可覆盖队列默认值。",
+              "普通失败后额外重试次数；有限非负整数。取消不重试；超时仅在 retryOnTimeout 为 true 时重试。 在添加时快照，可覆盖队列默认值。",
           },
           {
             name: "retryDelay",
@@ -115,7 +122,14 @@ export const queueDocs = {
             type: "number",
             defaultValue: "继承 options.timeout",
             description:
-              "每次实际执行的超时毫秒，有限且 > 0 启用；到期以 QueueTimeoutError 拒绝并取消 signal。超时为终态。 在添加时快照，可覆盖队列默认值。",
+              "每次实际执行的超时毫秒，有限且 > 0 启用；到期取消 signal，默认以 QueueTimeoutError 拒绝（终态）。 在添加时快照，可覆盖队列默认值。",
+          },
+          {
+            name: "retryOnTimeout",
+            type: "boolean",
+            defaultValue: "继承 options.retryOnTimeout",
+            description:
+              "为 true 时超时也计入 retry 重试。 在添加时快照，可覆盖队列默认值。",
           },
         ],
       },
@@ -148,7 +162,7 @@ export const queueDocs = {
         name: "add",
         type: "(run: (signal: AbortSignal) => Promise<T>, label?: string, taskOptions?: QueueTaskOptions) => TaskHandle<T>",
         description:
-          "添加并调度任务；label 默认空字符串。返回 ID 和结果 Promise；重试共享同一 ID/Promise，失败需 catch。",
+          "添加并调度任务；label 默认空字符串。返回 ID、结果 Promise 与 accepted（超出 capacity 或已卸载时为 false）；重试共享同一 ID/Promise，失败需 catch。",
       },
       {
         name: "cancel",
@@ -172,13 +186,20 @@ export const queueDocs = {
         description: "恢复调度；高优先级优先，同优先级按添加顺序。",
       },
       {
+        name: "remove",
+        type: "(id: string) => boolean",
+        description:
+          "删除单条已结束（success/error/cancelled）记录并返回 true；queued/running 或未知 ID 返回 false。",
+      },
+      {
         name: "clear",
-        type: "() => void",
-        description: "删除 success/error/cancelled 记录，保留 queued/running。",
+        type: "() => string[]",
+        description:
+          "删除 success/error/cancelled 记录，保留 queued/running；返回被删除的任务 ID。",
       },
     ],
     types:
-      'interface QueueTask<T> {\n  id: string;\n  label: string;\n  status: "queued" | "running" | "success" | "error" | "cancelled";\n  result?: T;\n  error?: unknown;\n  priority?: number; // 当前调度优先级\n  attempts?: number; // 已启动次数，首次为 1\n  retryCount?: number; // 已安排重试次数\n}\n// 以下 TaskHandle 是文档中的结构说明名称，不是包导出类型。\ninterface TaskHandle<T> { id: string; promise: Promise<T> }\ninterface QueueTaskOptions {\n  priority?: number; retry?: number; retryDelay?: number; timeout?: number;\n}\ninterface AsyncQueueOptions extends QueueTaskOptions {\n  concurrency?: number; capacity?: number;\n}\ndeclare class QueueCapacityError extends Error { constructor(); }\ndeclare class QueueTimeoutError extends Error { constructor(timeout: number); timeout: number; }',
+      'interface QueueTask<T> {\n  id: string;\n  label: string;\n  status: "queued" | "running" | "success" | "error" | "cancelled";\n  result?: T;\n  error?: unknown;\n  priority?: number; // 当前调度优先级\n  attempts?: number; // 已启动次数，首次为 1\n  retryCount?: number; // 已安排重试次数\n}\n// 以下 TaskHandle 是文档中的结构说明名称，不是包导出类型。\ninterface TaskHandle<T> { id: string; promise: Promise<T>; accepted: boolean }\ninterface QueueTaskOptions {\n  priority?: number; retry?: number; retryDelay?: number; timeout?: number;\n  retryOnTimeout?: boolean;\n}\ninterface AsyncQueueOptions extends QueueTaskOptions {\n  concurrency?: number; capacity?: number;\n}\ndeclare class QueueCapacityError extends Error { constructor(); }\ndeclare class QueueTimeoutError extends Error { constructor(timeout: number); timeout: number; }',
     notes: [
       "取消/超时立即拒绝对外 Promise，但不响应 signal 的底层任务在实际结束前仍占并发槽，避免重叠请求。running 仅统计状态为 running 的任务，不含这些已逻辑结束的传输。",
       "普通失败且配置 retry 时自动重试，退避期间 pending 包含该任务；暂停不取消退避计时，但阻止新尝试启动。卸载、cancelAll 会清理重试和超时计时器。",
@@ -196,11 +217,11 @@ export const queueDocs = {
       },
     ],
     signature:
-      "useUpload<T>(options: {\n  transport: (context: UploadContext) => Promise<T>;\n  concurrency?: number;\n})",
+      "useUpload<T>(options: {\n  transport: (context: UploadContext) => Promise<T>;\n} & AsyncQueueOptions)",
     parameters: [
       {
         name: "options",
-        type: "{\n    transport: (context: UploadContext) => Promise<T>;\n    concurrency?: number;\n}",
+        type: "{ transport: (context: UploadContext) => Promise<T> } & AsyncQueueOptions",
         defaultValue: "必填",
         description: "配置对象，字段见下表。",
       },
@@ -221,6 +242,13 @@ export const queueDocs = {
             type: "number",
             defaultValue: "3",
             description: "并发上限，规则与 useAsyncQueue 一致。",
+          },
+          {
+            name: "capacity / priority / retry / retryDelay / timeout / retryOnTimeout",
+            type: "AsyncQueueOptions",
+            defaultValue: "同 useAsyncQueue",
+            description:
+              "原样传给内部队列；被 capacity 拒绝的文件不会出现在 uploads 中（handle.accepted 为 false）。",
           },
         ],
       },
@@ -265,7 +293,7 @@ export const queueDocs = {
         name: "uploads",
         type: "(QueueTask<T> & { file: File; progress: number })[]",
         description:
-          "每个任务含原文件与进度；progress 为 0–100，成功时 100，不代表业务处理百分比。",
+          "每个任务含原文件与进度；progress 为 0–100，成功时 100，不代表业务处理百分比。进度事件按帧合并后更新，任务结束时立即同步最终进度。",
       },
       {
         name: "paused",
@@ -289,7 +317,7 @@ export const queueDocs = {
         name: "retry",
         type: "(id: string) => TaskHandle<T> | undefined",
         description:
-          "仅对失败/取消记录用原 File 创建新任务；保留旧记录。未知或其他状态返回 undefined。",
+          "仅对失败/取消记录用原 File 创建新任务，并移除旧记录（列表中不会出现重复项）。未知或其他状态返回 undefined。",
       },
       {
         name: "cancel",
@@ -320,7 +348,7 @@ export const queueDocs = {
       },
     ],
     types:
-      'interface QueueTask<T> {\n  id: string;\n  label: string;\n  status: "queued" | "running" | "success" | "error" | "cancelled";\n  result?: T;\n  error?: unknown;\n  priority?: number;\n  attempts?: number;\n  retryCount?: number;\n}\n// 以下 TaskHandle 是文档中的结构说明名称，不是包导出类型。\ninterface TaskHandle<T> { id: string; promise: Promise<T> }\n\ninterface UploadContext {\n  file: File;\n  signal: AbortSignal;\n  onProgress(loaded: number, total: number): void;\n}\n// loaded/total 使用同一单位（通常字节）；total > 0 才更新百分比。\n// 工厂返回可直接传入 transport 的函数：\n// (context: UploadContext) => Promise<string>',
+      'interface QueueTask<T> {\n  id: string;\n  label: string;\n  status: "queued" | "running" | "success" | "error" | "cancelled";\n  result?: T;\n  error?: unknown;\n  priority?: number;\n  attempts?: number;\n  retryCount?: number;\n}\n// 以下 TaskHandle 是文档中的结构说明名称，不是包导出类型。\ninterface TaskHandle<T> { id: string; promise: Promise<T>; accepted: boolean }\n\ninterface UploadContext {\n  file: File;\n  signal: AbortSignal;\n  onProgress(loaded: number, total: number): void;\n}\n// loaded/total 使用同一单位（通常字节）；total > 0 才更新百分比。\n// 工厂返回可直接传入 transport 的函数：\n// (context: UploadContext) => Promise<string>',
     notes: [
       "createXHRUploadTransport 使用 XHR/FormData，2xx 返回原始 responseText，不自动解析 JSON；网络错误、非 2xx、取消都会拒绝。需 JSON 时包一层传输适配器。",
       "上传没有文件类型/大小筛选、断点续传或总进度汇总；调用 add 前按业务校验。浏览器上传进度可能触发 CORS 预检。演示使用本地模拟传输。",

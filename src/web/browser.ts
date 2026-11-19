@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useLatest, useMemoizedFn } from "../state/index.js";
-import { abortError, resolveTarget, type Target } from "../internal/utils.js";
+import {
+  abortError,
+  equal,
+  resolveTarget,
+  type Target,
+} from "../internal/utils.js";
 
 export function useImage(
   src: string | null,
@@ -9,14 +14,18 @@ export function useImage(
     crossOrigin?: "anonymous" | "use-credentials";
   } = {},
 ) {
-  const [state, setState] = useState<{
+  type ImageState = {
     src: string | null;
     status: "idle" | "loading" | "loaded" | "error";
     error: Error | null;
     width: number;
     height: number;
-  }>({ src: null, status: "idle", error: null, width: 0, height: 0 });
+  };
+  const [stored, setStored] = useState<{ request: string | null } & ImageState>(
+    { request: null, src: null, status: "idle", error: null, width: 0, height: 0 },
+  );
   useEffect(() => {
+    const setState = (next: ImageState) => setStored({ request: src, ...next });
     if (!src) {
       setState({ src: null, status: "idle", error: null, width: 0, height: 0 });
       return;
@@ -67,9 +76,45 @@ export function useImage(
       image.onerror = null;
     };
   }, [src, options.fallback, options.crossOrigin]);
+  // Never report the previous image's result for a newly requested src.
+  if (stored.request !== src) {
+    const pending: ImageState = {
+      src,
+      status: src ? "loading" : "idle",
+      error: null,
+      width: 0,
+      height: 0,
+    };
+    return pending;
+  }
+  const { request: _, ...state } = stored;
   return state;
 }
 
+type PrefixedDocument = Document & {
+  webkitFullscreenElement?: Element | null;
+  webkitFullscreenEnabled?: boolean;
+  webkitExitFullscreen?: () => Promise<void> | void;
+};
+type PrefixedElement = Element & {
+  webkitRequestFullscreen?: () => Promise<void> | void;
+};
+const fullscreenElement = () =>
+  document.fullscreenElement ??
+  (document as PrefixedDocument).webkitFullscreenElement ??
+  null;
+const requestFullscreen = (node: Element) => {
+  if (typeof node.requestFullscreen === "function")
+    return node.requestFullscreen();
+  const prefixed = (node as PrefixedElement).webkitRequestFullscreen;
+  if (typeof prefixed === "function") return prefixed.call(node);
+  throw new Error("Fullscreen is unavailable for this target.");
+};
+const exitFullscreen = () => {
+  if (typeof document.exitFullscreen === "function")
+    return document.exitFullscreen();
+  return (document as PrefixedDocument).webkitExitFullscreen?.call(document);
+};
 export function useFullscreen(target: Target<Element>) {
   const [supported, setSupported] = useState(false);
   const [active, setActive] = useState(false);
@@ -78,31 +123,35 @@ export function useFullscreen(target: Target<Element>) {
   const current = useLatest(target);
   useEffect(() => {
     mounted.current = true;
-    const update = () =>
-      setActive(
-        !!document.fullscreenElement &&
-          document.fullscreenElement === resolveTarget(current.current),
-      );
+    const update = () => {
+      const element = fullscreenElement();
+      setActive(!!element && element === resolveTarget(current.current));
+    };
+    const root = document.documentElement as PrefixedElement;
+    const prefixed = document as PrefixedDocument;
     setSupported(
-      typeof document.documentElement.requestFullscreen === "function" &&
-        document.fullscreenEnabled !== false,
+      (typeof root.requestFullscreen === "function" ||
+        typeof root.webkitRequestFullscreen === "function") &&
+        (document.fullscreenEnabled ?? prefixed.webkitFullscreenEnabled) !==
+          false,
     );
     update();
     document.addEventListener("fullscreenchange", update);
+    document.addEventListener("webkitfullscreenchange", update);
     return () => {
       mounted.current = false;
       document.removeEventListener("fullscreenchange", update);
+      document.removeEventListener("webkitfullscreenchange", update);
     };
-  }, [current]);
+  });
   const enter = useMemoizedFn(async () => {
     try {
       const node = resolveTarget(target);
-      if (!node?.requestFullscreen)
-        throw new Error("Fullscreen is unavailable for this target.");
-      await node.requestFullscreen();
+      if (!node) throw new Error("Fullscreen is unavailable for this target.");
+      await requestFullscreen(node);
       if (mounted.current) {
         setError(undefined);
-        setActive(document.fullscreenElement === node);
+        setActive(fullscreenElement() === node);
       }
       return true;
     } catch (reason) {
@@ -112,8 +161,7 @@ export function useFullscreen(target: Target<Element>) {
   });
   const exit = useMemoizedFn(async () => {
     try {
-      if (document.fullscreenElement === resolveTarget(target))
-        await document.exitFullscreen();
+      if (fullscreenElement() === resolveTarget(target)) await exitFullscreen();
       if (mounted.current) {
         setError(undefined);
         setActive(false);
@@ -124,12 +172,10 @@ export function useFullscreen(target: Target<Element>) {
       return false;
     }
   });
-  const toggle = useMemoizedFn(() =>
-    document.fullscreenElement &&
-    document.fullscreenElement === resolveTarget(target)
-      ? exit()
-      : enter(),
-  );
+  const toggle = useMemoizedFn(() => {
+    const element = fullscreenElement();
+    return element && element === resolveTarget(target) ? exit() : enter();
+  });
   return { supported, active, error, enter, exit, toggle };
 }
 
@@ -278,12 +324,14 @@ export function useEventSource<T>(
 }
 
 export function useTextSelection(target?: Target<Element>) {
-  const [selection, setSelection] = useState<{
+  const [selection, setStored] = useState<{
     text: string;
     rect: { x: number; y: number; width: number; height: number } | null;
   }>({ text: "", rect: null });
   const targetRef = useLatest(target);
   useEffect(() => {
+    const setSelection = (next: typeof selection) =>
+      setStored((previous) => (equal(previous, next) ? previous : next));
     const update = () => {
       const current = document.getSelection();
       const node =
@@ -326,7 +374,7 @@ export function useTextSelection(target?: Target<Element>) {
   }, [targetRef]);
   const clear = useMemoizedFn(() => {
     document.getSelection()?.removeAllRanges();
-    setSelection({ text: "", rect: null });
+    setStored({ text: "", rect: null });
   });
   return { ...selection, clear };
 }

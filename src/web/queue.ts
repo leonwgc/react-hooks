@@ -17,6 +17,8 @@ export interface QueueTaskOptions {
   retry?: number;
   retryDelay?: number;
   timeout?: number;
+  /** Retry timed-out attempts too. Defaults to false: timeouts reject immediately. */
+  retryOnTimeout?: boolean;
 }
 export interface AsyncQueueOptions extends QueueTaskOptions {
   concurrency?: number;
@@ -40,8 +42,9 @@ interface Job<T> {
   options: QueueTaskOptions;
   run: (signal: AbortSignal) => Promise<T>;
   controller: AbortController;
+  /** Identifies the live attempt; results of superseded attempts are ignored. */
+  attempt?: object;
   retryTimer?: ReturnType<typeof setTimeout>;
-  timeoutTimer?: ReturnType<typeof setTimeout>;
   resolve: (value: T) => void;
   reject: (reason: unknown) => void;
 }
@@ -62,6 +65,36 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
     if (mounted.current)
       setTasks(Array.from(jobs.current.values(), (job) => ({ ...job.state })));
   });
+  const fail = (job: Job<T>, error: unknown, retryable = true) => {
+    const retry = Number.isFinite(job.options.retry)
+      ? Math.max(0, Math.floor(job.options.retry!))
+      : 0;
+    if (
+      retryable &&
+      (job.state.retryCount ?? 0) < retry &&
+      !job.controller.signal.aborted &&
+      mounted.current
+    ) {
+      job.state = {
+        ...job.state,
+        status: "queued",
+        retryCount: (job.state.retryCount ?? 0) + 1,
+        error,
+      };
+      job.retryTimer = setTimeout(
+        () => {
+          job.retryTimer = undefined;
+          pump();
+        },
+        Number.isFinite(job.options.retryDelay)
+          ? Math.max(0, job.options.retryDelay!)
+          : 0,
+      );
+    } else {
+      job.state = { ...job.state, status: "error", error };
+      job.reject(error);
+    }
+  };
   const pump = useMemoizedFn(() => {
     if (!mounted.current || stopped.current) return;
     const pending = [...jobs.current.values()]
@@ -73,9 +106,13 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
           (b.state.priority ?? 0) - (a.state.priority ?? 0) ||
           a.order - b.order,
       );
+    let started = false;
     for (const job of pending) {
       if (active.current >= limit.current) break;
       active.current++;
+      started = true;
+      const token = {};
+      job.attempt = token;
       job.state = {
         ...job.state,
         status: "running",
@@ -86,17 +123,23 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
       const abort = () => attempt.abort();
       job.controller.signal.addEventListener("abort", abort, { once: true });
       if (job.controller.signal.aborted) abort();
+      const live = () => job.attempt === token && job.state.status === "running";
       const timeout = job.options.timeout ?? 0;
-      if (Number.isFinite(timeout) && timeout > 0)
-        job.timeoutTimer = setTimeout(() => {
-          if (job.state.status !== "running") return;
-          const error = new QueueTimeoutError(timeout);
-          job.state = { ...job.state, status: "error", error };
-          job.reject(error);
-          attempt.abort();
-          publish();
-          // Do not free this slot until the transport actually settles.
-        }, timeout);
+      const timeoutTimer =
+        Number.isFinite(timeout) && timeout > 0
+          ? setTimeout(() => {
+              if (!live()) return;
+              job.attempt = undefined;
+              attempt.abort();
+              // The slot is still freed only when the transport actually settles.
+              fail(
+                job,
+                new QueueTimeoutError(timeout),
+                job.options.retryOnTimeout === true,
+              );
+              publish();
+            }, timeout)
+          : undefined;
       void Promise.resolve()
         .then(() => {
           if (attempt.signal.aborted) throw abortError();
@@ -104,58 +147,33 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
         })
         .then(
           (result) => {
-            if (job.state.status !== "running") return;
+            if (!live()) return;
+            job.attempt = undefined;
             job.state = { ...job.state, status: "success", result };
             job.resolve(result);
           },
           (error) => {
-            if (job.state.status !== "running") return;
-            const retry = Number.isFinite(job.options.retry)
-              ? Math.max(0, Math.floor(job.options.retry!))
-              : 0;
-            if (
-              (job.state.retryCount ?? 0) < retry &&
-              !job.controller.signal.aborted &&
-              mounted.current
-            ) {
-              job.state = {
-                ...job.state,
-                status: "queued",
-                retryCount: (job.state.retryCount ?? 0) + 1,
-                error,
-              };
-              job.retryTimer = setTimeout(
-                () => {
-                  job.retryTimer = undefined;
-                  pump();
-                },
-                Number.isFinite(job.options.retryDelay)
-                  ? Math.max(0, job.options.retryDelay!)
-                  : 0,
-              );
-            } else {
-              job.state = { ...job.state, status: "error", error };
-              job.reject(error);
-            }
+            if (!live()) return;
+            job.attempt = undefined;
+            fail(job, error);
           },
         )
         .finally(() => {
-          clearTimeout(job.timeoutTimer);
-          job.timeoutTimer = undefined;
+          clearTimeout(timeoutTimer);
           job.controller.signal.removeEventListener("abort", abort);
           active.current--;
           publish();
           pump();
         });
     }
-    publish();
+    if (started) publish();
   });
   const cancel = useMemoizedFn((id: string) => {
     const job = jobs.current.get(id);
     if (!job || !["queued", "running"].includes(job.state.status)) return;
     clearTimeout(job.retryTimer);
     job.retryTimer = undefined;
-    clearTimeout(job.timeoutTimer);
+    job.attempt = undefined;
     job.state = { ...job.state, status: "cancelled" };
     job.controller.abort();
     job.reject(abortError());
@@ -182,7 +200,7 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
         : Infinity;
       if (!mounted.current) {
         reject(abortError());
-        return { id, promise };
+        return { id, promise, accepted: false };
       }
       if (
         [...jobs.current.values()].filter((job) =>
@@ -190,7 +208,7 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
         ).length >= capacity
       ) {
         reject(new QueueCapacityError());
-        return { id, promise };
+        return { id, promise, accepted: false };
       }
       const settings = { ...config.current, ...taskOptions };
       const priority = Number.isFinite(settings.priority)
@@ -214,7 +232,7 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
       });
       publish();
       pump();
-      return { id, promise };
+      return { id, promise, accepted: true };
     },
   );
   const pause = useMemoizedFn(() => {
@@ -226,11 +244,23 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
     setPaused(false);
     pump();
   });
-  const clear = useMemoizedFn(() => {
-    for (const [id, job] of jobs.current)
-      if (!["queued", "running"].includes(job.state.status))
-        jobs.current.delete(id);
+  /** Removes one settled task from the list; queued or running tasks are kept. */
+  const remove = useMemoizedFn((id: string) => {
+    const job = jobs.current.get(id);
+    if (!job || ["queued", "running"].includes(job.state.status)) return false;
+    jobs.current.delete(id);
     publish();
+    return true;
+  });
+  const clear = useMemoizedFn(() => {
+    const removed: string[] = [];
+    for (const [id, job] of jobs.current)
+      if (!["queued", "running"].includes(job.state.status)) {
+        jobs.current.delete(id);
+        removed.push(id);
+      }
+    publish();
+    return removed;
   });
   useEffect(() => {
     mounted.current = true;
@@ -251,6 +281,7 @@ export function useAsyncQueue<T = unknown>(options: AsyncQueueOptions = {}) {
     cancelAll,
     pause,
     resume,
+    remove,
     clear,
     running: tasks.filter((t) => t.status === "running").length,
     pending: tasks.filter((t) => t.status === "queued").length,
@@ -320,16 +351,58 @@ export function createXHRUploadTransport(options: {
     });
 }
 
-export function useUpload<T>(options: {
-  transport: (context: UploadContext) => Promise<T>;
-  concurrency?: number;
-}) {
-  const queue = useAsyncQueue<T>({ concurrency: options.concurrency });
+export function useUpload<T>(
+  options: {
+    transport: (context: UploadContext) => Promise<T>;
+  } & AsyncQueueOptions,
+) {
+  const { transport: _, ...queueOptions } = options;
+  const queue = useAsyncQueue<T>(queueOptions);
   const files = useRef(new Map<string, File>());
   const [progress, setProgress] = useState<Record<string, number>>({});
+  const buffered = useRef<Record<string, number>>({});
+  const frame = useRef<{ cancel: () => void } | null>(null);
   const transport = useMemoizedFn(options.transport);
+  // Coalesce high-frequency progress events into at most one render per frame.
+  const flushProgress = useMemoizedFn(() => {
+    frame.current?.cancel();
+    frame.current = null;
+    if (!Object.keys(buffered.current).length) return;
+    const pending = buffered.current;
+    buffered.current = {};
+    setProgress((p) => ({ ...p, ...pending }));
+  });
+  const reportProgress = useMemoizedFn((id: string, value: number) => {
+    buffered.current[id] = value;
+    if (frame.current) return;
+    if (typeof requestAnimationFrame === "function") {
+      const handle = requestAnimationFrame(flushProgress);
+      frame.current = { cancel: () => cancelAnimationFrame(handle) };
+    } else {
+      const handle = setTimeout(flushProgress, 16);
+      frame.current = { cancel: () => clearTimeout(handle) };
+    }
+  });
+  useEffect(
+    () => () => {
+      frame.current?.cancel();
+      frame.current = null;
+    },
+    [],
+  );
+  const forget = (ids: Iterable<string>) => {
+    const removed = new Set(ids);
+    for (const id of removed) {
+      files.current.delete(id);
+      delete buffered.current[id];
+    }
+    setProgress((p) =>
+      Object.fromEntries(Object.entries(p).filter(([id]) => !removed.has(id))),
+    );
+  };
   const add = useMemoizedFn((input: Iterable<File>) =>
     Array.from(input, (file) => {
+      let id = "";
       const task = queue.add(
         (signal) =>
           transport({
@@ -337,15 +410,16 @@ export function useUpload<T>(options: {
             signal,
             onProgress: (loaded, total) => {
               if (!signal.aborted && total > 0)
-                setProgress((p) => ({
-                  ...p,
-                  [task.id]: Math.max(0, Math.min(100, (loaded / total) * 100)),
-                }));
+                reportProgress(
+                  id,
+                  Math.max(0, Math.min(100, (loaded / total) * 100)),
+                );
             },
-          }),
+          }).finally(flushProgress),
         file.name,
       );
-      files.current.set(task.id, file);
+      id = task.id;
+      if (task.accepted) files.current.set(task.id, file);
       return task;
     }),
   );
@@ -354,26 +428,20 @@ export function useUpload<T>(options: {
     const file = files.current.get(id);
     if (!file || !task || !["error", "cancelled"].includes(task.status))
       return undefined;
+    // Replace the failed entry instead of leaving a duplicate row behind.
+    if (queue.remove(id)) forget([id]);
     return add([file])[0];
   });
   const clear = useMemoizedFn(() => {
-    const retained = new Set(
-      queue.tasks
-        .filter((t) => ["queued", "running"].includes(t.status))
-        .map((t) => t.id),
-    );
-    for (const id of files.current.keys())
-      if (!retained.has(id)) files.current.delete(id);
-    setProgress((p) =>
-      Object.fromEntries(Object.entries(p).filter(([id]) => retained.has(id))),
-    );
-    queue.clear();
+    forget(queue.clear());
   });
-  const uploads = queue.tasks.map((task) => ({
-    ...task,
-    file: files.current.get(task.id)!,
-    progress: task.status === "success" ? 100 : (progress[task.id] ?? 0),
-  }));
+  const uploads = queue.tasks
+    .filter((task) => files.current.has(task.id))
+    .map((task) => ({
+      ...task,
+      file: files.current.get(task.id)!,
+      progress: task.status === "success" ? 100 : (progress[task.id] ?? 0),
+    }));
   return {
     uploads,
     add,

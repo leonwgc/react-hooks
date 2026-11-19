@@ -123,11 +123,21 @@ export function useSpring(target: number, options: SpringOptions = {}) {
   }, [target, stiffness, damping, mass, precision, reduced, restart]);
   return { ...state, stop, finish, restart };
 }
-export type TransitionPhase = "unmounted" | "entering" | "entered" | "exiting";
+export type TransitionPhase =
+  | "unmounted"
+  | "preEnter"
+  | "entering"
+  | "entered"
+  | "exiting";
 export interface TransitionStateOptions {
   enterDuration?: number;
   exitDuration?: number;
   appear?: boolean;
+  /**
+   * Insert a "preEnter" phase (mounted with start styles) for two frames before
+   * "entering", so CSS transitions on freshly mounted elements actually run.
+   */
+  preEnter?: boolean;
   endEvent?: "transitionend" | "animationend";
   propertyName?: string;
   animationName?: string;
@@ -146,12 +156,19 @@ export function useTransitionState(
   const enter = duration(options.enterDuration),
     exit = duration(options.exitDuration);
   const [phase, setPhase] = useState<TransitionPhase>(() =>
-    open ? (options.appear ? "entering" : "entered") : "unmounted",
+    open
+      ? options.appear
+        ? options.preEnter
+          ? "preEnter"
+          : "entering"
+        : "entered"
+      : "unmounted",
   );
   const latest = useRef(phase);
   const active = useRef<{
     open: boolean;
     timer?: ReturnType<typeof setTimeout>;
+    frame?: () => void;
   } | null>(null);
   const initial = useRef(true);
   const change = (next: TransitionPhase) => {
@@ -162,6 +179,7 @@ export function useTransitionState(
     const operation = active.current;
     if (!operation || operation.open !== open) return;
     clearTimeout(operation.timer);
+    operation.frame?.();
     active.current = null;
     change(open ? "entered" : "unmounted");
     if (open) options.onEntered?.();
@@ -175,22 +193,55 @@ export function useTransitionState(
       (!open && latest.current === "unmounted")
     )
       return;
-    const next = open ? "entering" : "exiting";
-    const enteringPhase = latest.current !== next || first;
-    active.current = { open };
+    const wait = open ? enter : exit;
+    const previous = latest.current;
+    const next: TransitionPhase = !open
+      ? "exiting"
+      : options.preEnter &&
+          wait > 0 &&
+          (previous === "unmounted" || previous === "preEnter")
+        ? "preEnter"
+        : "entering";
+    const enteringPhase = open
+      ? (previous !== "preEnter" && previous !== "entering") || first
+      : previous !== "exiting" || first;
+    const operation: NonNullable<typeof active.current> = { open };
+    active.current = operation;
     change(next);
     if (enteringPhase) {
       if (open) options.onEnter?.();
       else options.onExit?.();
     }
-    const wait = open ? enter : exit;
-    if (wait === 0) complete();
-    else if (active.current) active.current.timer = setTimeout(complete, wait);
+    if (wait === 0) {
+      complete();
+      return;
+    }
+    if (active.current !== operation) return;
+    operation.timer = setTimeout(complete, wait);
+    if (next === "preEnter") {
+      // Two frames guarantee the start styles were computed before "entering" applies.
+      const schedule = (callback: () => void) => {
+        if (typeof requestAnimationFrame === "function") {
+          const id = requestAnimationFrame(callback);
+          return () => cancelAnimationFrame(id);
+        }
+        const id = setTimeout(callback, 16);
+        return () => clearTimeout(id);
+      };
+      operation.frame = schedule(() => {
+        operation.frame = schedule(() => {
+          operation.frame = undefined;
+          if (active.current === operation && latest.current === "preEnter")
+            change("entering");
+        });
+      });
+    }
   });
   useEffect(() => {
     start();
     return () => {
       clearTimeout(active.current?.timer);
+      active.current?.frame?.();
       active.current = null;
     };
   }, [open, enter, exit, start]);

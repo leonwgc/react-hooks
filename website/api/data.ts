@@ -48,7 +48,7 @@ export const requestMethods = [
   v(
     "mutate",
     "(next: T | ((previous: T | undefined) => T)) => void",
-    "只更新本地 data，不发请求，不取消进行中的请求；后续成功响应仍可覆盖。",
+    "只更新本地 data，不发请求；若有进行中的请求会将其中止，避免旧响应覆盖手动数据（不会停止轮询）。",
   ),
 ];
 export const dataDocs = {
@@ -298,7 +298,7 @@ export const dataDocs = {
         name: "mutate",
         type: "(next: T | ((previous: T | undefined) => T)) => void",
         description:
-          "只更新本地 data，不发请求，不取消进行中的请求；后续成功响应仍可覆盖。",
+          "只更新本地 data，不发请求；若有进行中的请求会将其中止，避免旧响应覆盖手动数据（不会停止轮询）。",
       },
     ],
     types:
@@ -390,6 +390,11 @@ export const dataDocs = {
         "(patch: Partial<T>) => void",
         "浅合并草稿，不影响 submitted。",
       ),
+      v(
+        "replaceDraft",
+        "(next: T) => void",
+        "整体替换草稿（不合并旧字段），不影响 submitted。",
+      ),
       v("submit", "() => void", "将当前草稿提交，并递增 revision。"),
       v(
         "reset",
@@ -473,7 +478,8 @@ export const dataDocs = {
       {
         name: "allSelected",
         type: "boolean",
-        description: "当前未禁用 keys 非空且全部已选中；禁用项不影响全选判断。",
+        description:
+          "当前未禁用 keys 非空且全部已选中，或已选到 maxSelected 上限；禁用项不影响全选判断。",
       },
       {
         name: "partiallySelected",
@@ -507,7 +513,8 @@ export const dataDocs = {
       {
         name: "toggleAll",
         type: "() => void",
-        description: "当前页已全选则移除本页选择，否则选中本页。",
+        description:
+          "当前页已全选（或已达 maxSelected 上限）则移除本页选择，否则选中本页。",
       },
       {
         name: "clear",
@@ -735,7 +742,7 @@ export const dataDocs = {
       v(
         "applyPreset",
         "(name: string) => boolean",
-        "应用预设并查询第 1 页；名称不存在返回 false。",
+        "用预设整体替换筛选条件（不与当前草稿合并）并查询第 1 页；名称不存在返回 false。",
       ),
       v("deletePreset", "(name: string) => void", "删除本实例预设。"),
     ],

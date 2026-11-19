@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useId,
+  useLayoutEffect,
   useRef,
   useState,
   useSyncExternalStore,
@@ -19,6 +20,12 @@ import {
 export type { FieldPath, FieldValue } from "./path.js";
 export type FormErrors<T> = Partial<Record<FieldPath<T>, string>>;
 type FieldNode = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
+export interface RegisterOptions {
+  /** Option value for radio buttons and checkbox groups sharing one field. */
+  value?: string;
+  /** File inputs are uncontrolled; their value becomes a `File[]`. */
+  type?: "file";
+}
 interface ArrayAdapter {
   commit: (
     path: string,
@@ -27,6 +34,8 @@ interface ArrayAdapter {
   ) => void;
   version: (path: string) => number;
 }
+const useBrowserLayoutEffect =
+  typeof document === "undefined" ? useEffect : useLayoutEffect;
 const arrayAdapters = new WeakMap<object, ArrayAdapter>();
 const under = (path: string, parent: string) =>
   path === parent || path.startsWith(`${parent}.`);
@@ -108,10 +117,10 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       lifecycle.current++;
     };
   }, []);
-  const validate = useMemoizedFn(
-    async (paths?: readonly FieldPath<T>[]): Promise<boolean> => {
+  const runValidation = useMemoizedFn(
+    async (paths?: readonly FieldPath<T>[]): Promise<boolean | "stale"> => {
       clearTimeout(validationTimer.current);
-      const selected = paths && !config.current.schema ? new Set(paths) : null;
+      const selected = paths ? new Set<string>(paths) : null;
       if (selected) {
         let added = true;
         while (added) {
@@ -176,12 +185,9 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       } catch (error) {
         schemaFailure = error ?? new Error("Schema validation failed");
       }
-      if (
-        !mounted.current ||
-        id !== validation.current ||
-        version !== revision.current
-      )
-        return false;
+      if (!mounted.current) return false;
+      if (id !== validation.current || version !== revision.current)
+        return "stale";
       if (schemaFailure !== undefined) {
         setValidating(false);
         setSubmitError(schemaFailure);
@@ -189,7 +195,7 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       }
       const next: FormErrors<T> = { ...schemaErrors };
       for (const path of Object.keys(next) as FieldPath<T>[])
-        if (excluded(path)) delete next[path];
+        if (excluded(path) || !isSelected(path)) delete next[path];
       results.forEach(([path, message]) => {
         if (message) next[path] = message;
       });
@@ -208,16 +214,17 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       return Object.keys(next).length === 0;
     },
   );
+  const validate = useMemoizedFn(
+    async (paths?: readonly FieldPath<T>[]): Promise<boolean> =>
+      (await runValidation(paths)) === true,
+  );
   const scheduleValidation = useMemoizedFn((path?: FieldPath<T>) => {
     clearTimeout(validationTimer.current);
     if (path) pendingPaths.current?.add(path);
     else pendingPaths.current = null;
     const run = () => {
-      void validate(
-        pendingPaths.current && config.current.dependencies
-          ? [...pendingPaths.current]
-          : undefined,
-      );
+      // Only the changed/blurred fields (plus declared dependents) are validated.
+      void validate(pendingPaths.current ? [...pendingPaths.current] : undefined);
     };
     if ((config.current.validateDebounce ?? 0) > 0)
       validationTimer.current = setTimeout(
@@ -386,17 +393,40 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       .sort((a, b) => (a[1].compareDocumentPosition(b[1]) & 2 ? 1 : -1));
     return candidates.some(([path]) => focusField(path as FieldPath<T>));
   });
-  const register = <P extends FieldPath<T>>(path: P) => {
+  const register = <P extends FieldPath<T>>(
+    path: P,
+    settings: RegisterOptions = {},
+  ) => {
     const value = getPath(values, path);
+    const choice = settings.value;
+    const isFile = settings.type === "file";
+    const isList = Array.isArray(value);
+    let checked: boolean | undefined;
+    let controlled: string | number | readonly string[] | undefined;
+    if (choice !== undefined) {
+      // Radio buttons and checkbox groups share one field and carry their own value.
+      controlled = choice;
+      checked = isList
+        ? (value as unknown[]).includes(choice)
+        : Object.is(value, choice);
+    } else if (!isFile) {
+      if (typeof value === "boolean") {
+        controlled = "";
+        checked = value;
+      } else if (isList)
+        controlled = (value as unknown[]).map((item) => String(item));
+      else
+        controlled =
+          typeof value === "string" ||
+          (typeof value === "number" && Number.isFinite(value))
+            ? value
+            : "";
+    }
     return {
       name: path,
       ref: getFieldRef(path),
-      value:
-        typeof value === "string" ||
-        (typeof value === "number" && Number.isFinite(value))
-          ? value
-          : "",
-      checked: typeof value === "boolean" ? value : undefined,
+      value: controlled,
+      checked,
       "aria-invalid": Boolean(errors[path]),
       onChange: (
         event: ChangeEvent<
@@ -404,14 +434,29 @@ export function useForm<T extends object>(options: FormOptions<T>) {
         >,
       ) => {
         const input = event.target;
-        const next =
-          input instanceof HTMLInputElement && input.type === "checkbox"
-            ? input.checked
-            : typeof value === "number"
-              ? input.value === ""
-                ? Number.NaN
-                : Number(input.value)
-              : input.value;
+        const latest = getPath(current.current, path);
+        let next: unknown;
+        if (isFile && input instanceof HTMLInputElement)
+          next = Array.from(input.files ?? []);
+        else if (choice !== undefined) {
+          const on = input instanceof HTMLInputElement ? input.checked : true;
+          if (Array.isArray(latest))
+            next = on
+              ? latest.includes(choice)
+                ? latest
+                : [...latest, choice]
+              : latest.filter((item) => item !== choice);
+          else if (on) next = choice;
+          else if (input instanceof HTMLInputElement && input.type === "radio")
+            return;
+          else next = typeof latest === "boolean" ? false : undefined;
+        } else if (input instanceof HTMLSelectElement && input.multiple)
+          next = Array.from(input.selectedOptions, (option) => option.value);
+        else if (input instanceof HTMLInputElement && input.type === "checkbox")
+          next = input.checked;
+        else if (typeof value === "number")
+          next = input.value === "" ? Number.NaN : Number(input.value);
+        else next = input.value;
         changed(setPath(current.current, path, next), path);
       },
       onBlur: () => {
@@ -431,7 +476,9 @@ export function useForm<T extends object>(options: FormOptions<T>) {
       const generation = lifecycle.current;
       const promise = (async () => {
         try {
-          const valid = await validate();
+          let valid = await runValidation();
+          while (valid === "stale" && generation === lifecycle.current)
+            valid = await runValidation();
           if (generation !== lifecycle.current) return false;
           if (!valid) {
             if (config.current.shouldFocusError) focusFirstError();
@@ -520,7 +567,8 @@ export function useForm<T extends object>(options: FormOptions<T>) {
         0,
       ),
   });
-  useEffect(() => {
+  // Notify isolated field subscribers in the same commit to avoid a stale frame.
+  useBrowserLayoutEffect(() => {
     for (const listener of listeners.current) listener();
   }, [values, errors, touched]);
   return {

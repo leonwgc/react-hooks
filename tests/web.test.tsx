@@ -118,7 +118,10 @@ it("tracks upload progress, errors and retries with the original File", async ()
   await act(async () => {
     await result.current.retry(task.id)?.promise;
   });
-  expect(result.current.uploads[1]?.progress).toBe(100);
+  // The retried upload replaces the failed row instead of duplicating it.
+  expect(result.current.uploads).toHaveLength(1);
+  expect(result.current.uploads[0]?.status).toBe("success");
+  expect(result.current.uploads[0]?.progress).toBe(100);
 });
 it("XHR upload submits FormData, reports progress and removes abort listeners", async () => {
   class XHR {

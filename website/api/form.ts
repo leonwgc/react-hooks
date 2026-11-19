@@ -56,7 +56,8 @@ export const formDocs = {
             name: "mode",
             type: "'onSubmit' | 'onBlur' | 'onChange'",
             defaultValue: "'onSubmit'",
-            description: "首次提交之前的自动校验时机。",
+            description:
+              "首次提交之前的自动校验时机；onBlur/onChange 只校验触发的字段及其 dependencies 中声明的依赖字段，不会让未交互字段提前报错。",
           },
           {
             name: "revalidateMode",
@@ -173,20 +174,21 @@ export const formDocs = {
       },
       {
         name: "register",
-        type: "<P extends FieldPath<T>>(path: P) => RegisterBinding",
-        description: "返回原生 input/textarea/select 所需绑定，结构见下方。",
+        type: "<P extends FieldPath<T>>(path: P, options?: RegisterOptions) => RegisterBinding",
+        description:
+          "返回原生 input/textarea/select 所需绑定，结构见下方。options.value 用于 radio 组和复选框组（数组字段增删该值）；options.type 为 'file' 时值为 File[]；数组字段配合 <select multiple> 使用。",
       },
       {
         name: "validate",
         type: "(paths?: readonly FieldPath<T>[]) => Promise<boolean>",
         description:
-          "立即校验，不受防抖影响；省略 paths 校验全表。路径包含子字段和传递依赖；有 schema 时始终全表。返回本轮选中校验是否通过，不表示未选字段一定无错。",
+          "立即校验，不受防抖影响；省略 paths 校验全表。路径包含子字段和传递依赖；有 schema 时仍执行整个 schema，但只采纳所选路径的错误。返回本轮选中校验是否通过，不表示未选字段一定无错。",
       },
       {
         name: "handleSubmit",
         type: "(callback: (values: T) => void | Promise<void>) => (event?: { preventDefault(): void }) => Promise<boolean>",
         description:
-          "生成提交处理器，先立即整表校验再调用 callback。成功 true，校验失败、失效或回调异常 false；进行中重复提交共用 Promise。",
+          "生成提交处理器，先立即整表校验再调用 callback。校验期间值发生变化时会用最新值重新校验，不会静默失败。成功 true，校验失败、reset 或回调异常 false；进行中重复提交共用 Promise。",
       },
       {
         name: "reset",
@@ -225,7 +227,7 @@ export const formDocs = {
       },
     ],
     types:
-      '// FieldPath<T>：T 的点号字段路径，含数组索引，最多递归 6 层。\n// 例如 "profile.name"、"contacts.0.email"。\n// FieldValue<T, P>：路径 P 对应的值类型。\ntype FormErrors<T> = Partial<Record<FieldPath<T>, string>>;\ntype FormApi<T extends object> = ReturnType<typeof useForm<T>>;\n\n// register 的返回结构（按原生输入控件绑定）\ninterface RegisterBinding {\n  name: string;\n  ref(node: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null): void;\n  value: string | number;\n  checked: boolean | undefined;\n  "aria-invalid": boolean;\n  onChange(event: React.ChangeEvent<\n    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement\n  >): void;\n  onBlur(): void;\n}',
+      '// FieldPath<T>：T 的点号字段路径，含数组索引，最多递归 6 层。\n// 例如 "profile.name"、"contacts.0.email"。\n// FieldValue<T, P>：路径 P 对应的值类型。\ntype FormErrors<T> = Partial<Record<FieldPath<T>, string>>;\ntype FormApi<T extends object> = ReturnType<typeof useForm<T>>;\n\n// register 的返回结构（按原生输入控件绑定）\ninterface RegisterOptions {\n  value?: string; // radio / 复选框组的选项值\n  type?: "file"; // 文件输入，值为 File[]\n}\ninterface RegisterBinding {\n  name: string;\n  ref(node: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null): void;\n  value: string | number | readonly string[] | undefined; // 文件输入为 undefined\n  checked: boolean | undefined;\n  "aria-invalid": boolean;\n  onChange(event: React.ChangeEvent<\n    HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement\n  >): void;\n  onBlur(): void;\n}',
     notes: [
       "checkbox 根据 checked 写布尔值。当前字段为 number 时转换输入文本，空值写 NaN。对象值不是原生文本输入值；第三方控件使用 setFieldValue 或 useFormField。",
       "异步旧结果不会覆盖更新后的值；过期 validate 返回 false。schema 抛错写 submitError 并阻止提交，不伪装成字段通过。reset 不会取消已进入业务回调的服务端操作。",

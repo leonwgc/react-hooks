@@ -16,7 +16,7 @@ export const listDocs = {
         type: "unknown",
         defaultValue: "无默认类型",
         description:
-          "分页游标的类型，由 initialCursor 和 service 的参数共同推断，也可显式指定。页码可用 number（如 1），令牌可用 string（如 'page-2'），也可使用后端要求的对象结构。nextCursor: Cursor | null 中的 null 专门表示结束，不应作为 initialCursor。",
+          "分页游标的类型，由 initialCursor 和 service 的参数共同推断，也可显式指定。页码可用 number（如 1），令牌可用 string（如 'page-2'），也可使用后端要求的对象结构。nextCursor: Cursor | null 中的 null 专门表示结束；initialCursor 可以是 null（例如首页不带游标）。",
       },
     ],
     typeExample: `import { useInfiniteScroll, type InfinitePage } from "@leonwgc/react-hooks";

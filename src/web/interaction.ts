@@ -5,6 +5,7 @@ import {
   type FocusEvent,
   type PointerEvent,
   type DragEvent,
+  type MouseEvent,
 } from "react";
 import { useMemoizedFn, useLatest } from "../state/index.js";
 import { equal, resolveTarget, type Target } from "../internal/utils.js";
@@ -236,9 +237,11 @@ export function useLongPress(
     undefined,
   );
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const fired = useRef(false);
   const call = useMemoizedFn(onLongPress);
   const cancel = useMemoizedFn(() => {
     clearTimeout(timer.current);
+    timer.current = undefined;
     active.current = undefined;
     setPressing(false);
   });
@@ -254,17 +257,29 @@ export function useLongPress(
   }, [cancel]);
   const onPointerDown = useMemoizedFn((event: PointerEvent<HTMLElement>) => {
     if (options.disabled || event.button !== 0 || active.current) return;
+    fired.current = false;
     active.current = {
       id: event.pointerId,
       x: event.clientX,
       y: event.clientY,
     };
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const currentTarget = event.currentTarget;
+    try {
+      currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* A detached target may not allow capture. */
+    }
     setPressing(true);
     timer.current = setTimeout(
       () => {
         timer.current = undefined;
-        call(event);
+        fired.current = true;
+        // React clears currentTarget after dispatch; expose the original element.
+        call(
+          Object.create(event, {
+            currentTarget: { value: currentTarget, enumerable: true },
+          }) as PointerEvent<HTMLElement>,
+        );
       },
       Math.max(0, options.delay ?? 500),
     );
@@ -282,6 +297,13 @@ export function useLongPress(
   const end = useMemoizedFn((event: PointerEvent<HTMLElement>) => {
     if (active.current?.id === event.pointerId) cancel();
   });
+  // The click that follows a completed long press must not also trigger a tap action.
+  const onClickCapture = useMemoizedFn((event: MouseEvent<HTMLElement>) => {
+    if (!fired.current) return;
+    fired.current = false;
+    event.preventDefault();
+    event.stopPropagation();
+  });
   return {
     pressing,
     cancel,
@@ -291,6 +313,7 @@ export function useLongPress(
       onPointerUp: end,
       onPointerCancel: end,
       onLostPointerCapture: end,
+      onClickCapture,
     },
   };
 }
@@ -314,6 +337,16 @@ export function useDrag(
     setDragging(true);
   });
   const onDragEnd = useMemoizedFn(() => setDragging(false));
+  // If the source unmounts mid-drag its dragend never fires; recover from global signals.
+  useEffect(() => {
+    if (!dragging) return;
+    const stop = () => setDragging(false);
+    const events = ["dragend", "drop", "pointerdown"] as const;
+    for (const type of events) window.addEventListener(type, stop, true);
+    return () => {
+      for (const type of events) window.removeEventListener(type, stop, true);
+    };
+  }, [dragging]);
   return {
     dragging,
     bind: { draggable: !options.disabled, onDragStart, onDragEnd },

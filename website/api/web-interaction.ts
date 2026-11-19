@@ -245,7 +245,7 @@ export const webInteractionDocs = {
         "onLongPress",
         "(event: React.PointerEvent<HTMLElement>) => void",
         "必填",
-        "达到延迟后调用一次，传入最初按下事件；异步时不要依赖 currentTarget。",
+        "达到延迟后调用一次，传入最初按下事件；其 currentTarget 仍指向按下的元素。",
       ),
       options(
         "{\n    delay?: number;\n    threshold?: number;\n    disabled?: boolean;\n}",
@@ -273,13 +273,17 @@ export const webInteractionDocs = {
         "boolean",
         "有效按压是否仍持续；回调触发后保持 true，直到松开/取消。初始 false。",
       ),
-      v("bind", "PointerBindings", "展开到交互元素，包含下方五个指针处理器。"),
+      v(
+        "bind",
+        "PointerBindings",
+        "展开到交互元素，包含下方指针处理器和 onClickCapture（长按触发后拦截随后的一次 click）。",
+      ),
     ],
     methods: [
       v("cancel", "() => void", "清除等待与当前指针状态，pressing 设 false。"),
     ],
     types:
-      "// PointerBindings 为文档结构名，不是包导出类型。\ninterface PointerBindings {\n  onPointerDown(event: React.PointerEvent<HTMLElement>): void;\n  onPointerMove(event: React.PointerEvent<HTMLElement>): void;\n  onPointerUp(event: React.PointerEvent<HTMLElement>): void;\n  onPointerCancel(event: React.PointerEvent<HTMLElement>): void;\n  onLostPointerCapture(event: React.PointerEvent<HTMLElement>): void;\n}",
+      "// PointerBindings 为文档结构名，不是包导出类型。\ninterface PointerBindings {\n  onPointerDown(event: React.PointerEvent<HTMLElement>): void;\n  onPointerMove(event: React.PointerEvent<HTMLElement>): void;\n  onPointerUp(event: React.PointerEvent<HTMLElement>): void;\n  onPointerCancel(event: React.PointerEvent<HTMLElement>): void;\n  onLostPointerCapture(event: React.PointerEvent<HTMLElement>): void;\n  onClickCapture(event: React.MouseEvent<HTMLElement>): void;\n}",
     notes: [
       "仅响应主按钮（button === 0），同一时刻只跟踪一个指针。移动超阈值、取消、松开、失去捕获、窗口失焦或卸载会清理；自行提供键盘等价按钮。",
     ],
@@ -477,7 +481,7 @@ export const webInteractionDocs = {
       },
     ],
     signature:
-      "useSortable<T>(\n  items: readonly T[],\n  options: {\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n  },\n)",
+      "useSortable<T>(\n  items: readonly T[],\n  options: {\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n    messages?: SortableMessages;\n  },\n)",
     parameters: [
       p(
         "items",
@@ -486,7 +490,7 @@ export const webInteractionDocs = {
         "受控列表；调用方收到 onChange 后更新状态。",
       ),
       options(
-        "{\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n}",
+        "{\n    getKey: (item: T) => React.Key;\n    onChange: (items: T[]) => void;\n    disabled?: boolean;\n    messages?: SortableMessages;\n}",
         true,
       ),
     ],
@@ -511,6 +515,12 @@ export const webInteractionDocs = {
             "boolean",
             "false",
             "禁止拖放/移动，行 tabIndex 设 -1；进行中的键盘排序会取消并恢复顺序。",
+          ),
+          p(
+            "messages",
+            "SortableMessages",
+            "简体中文文案",
+            "自定义读屏播报与 aria-roledescription：roleDescription、picked(position)、moved(position, total)、finished、cancelled。",
           ),
         ],
       },
@@ -545,7 +555,7 @@ export const webInteractionDocs = {
       ),
     ],
     types:
-      '// SortableItemProps 为文档结构名，不是包导出类型。\ninterface SortableItemProps {\n  draggable: boolean;\n  tabIndex: number;\n  "aria-roledescription": string;\n  "aria-keyshortcuts": string;\n  "data-sorting": boolean | undefined;\n  onKeyDown(event: React.KeyboardEvent<HTMLElement>): void;\n  onDragStart(event: React.DragEvent<HTMLElement>): void;\n  onDragOver(event: React.DragEvent<HTMLElement>): void;\n  onDrop(event: React.DragEvent<HTMLElement>): void;\n  onDragEnd(): void;\n}',
+      '// SortableItemProps 为文档结构名，不是包导出类型。\ninterface SortableItemProps {\n  draggable: boolean;\n  tabIndex: number;\n  "aria-roledescription": string;\n  "aria-keyshortcuts": string;\n  "data-sorting": boolean | undefined;\n  onKeyDown(event: React.KeyboardEvent<HTMLElement>): void;\n  onDragStart(event: React.DragEvent<HTMLElement>): void;\n  onDragOver(event: React.DragEvent<HTMLElement>): void;\n  onDrop(event: React.DragEvent<HTMLElement>): void;\n  onDragEnd(): void;\n  onBlur(event: React.FocusEvent<HTMLElement>): void; // 键盘排序中焦点离开即取消\n}\ninterface SortableMessages {\n  roleDescription?: string;\n  picked?: (position: number) => string;\n  moved?: (position: number, total: number) => string;\n  finished?: string;\n  cancelled?: string;\n}',
     notes: [
       "空格拾取；上下键/Home/End 调整；Enter/空格完成；Esc 取消。键盘只处理行自身获得焦点的事件，忽略内部按钮或输入法组合。",
       "只接收当前实例的原生拖放；未提供跨列表排序、触摸排序引擎或焦点锁。为触屏保留上移/下移按钮。",

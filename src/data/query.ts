@@ -5,7 +5,7 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-import { abortError } from "../internal/utils.js";
+import { abortError, equal } from "../internal/utils.js";
 
 export type QueryKeyPart =
   | string
@@ -47,6 +47,13 @@ function keyHash(key: QueryKey): string {
     return result;
   };
   return JSON.stringify(normalize(key));
+}
+// "user" matches "user", "user:1", "user/1" and ["user", ...] but never "users".
+function matchesStringPrefix(prefix: string, key: QueryKey) {
+  if (Array.isArray(key)) return key[0] === prefix;
+  if (typeof key !== "string" || !key.startsWith(prefix)) return false;
+  const next = key.charAt(prefix.length);
+  return next === "" || prefix === "" || !/[\p{L}\p{N}_]/u.test(next);
 }
 export interface QueryState<T> {
   data: T | undefined;
@@ -244,7 +251,7 @@ export function createQueryStore<T, Key extends QueryKey = string>(
           (exact
             ? entryHash === hash
             : typeof key === "string"
-              ? typeof entry.key === "string" && entry.key.startsWith(key)
+              ? matchesStringPrefix(key, entry.key)
               : Array.isArray(key) &&
                 Array.isArray(entry.key) &&
                 key.length <= entry.key.length &&
@@ -349,7 +356,18 @@ export function useQuery<T, Key extends QueryKey, Selected = T>(
         : options.select
           ? options.select(raw.data)
           : (raw.data as unknown as Selected);
-    let next: QueryState<Selected> = { ...raw, data };
+    // Structural sharing: an equal selection keeps its previous reference, so an
+    // inline `select` does not hand consumers a new object on every render.
+    const reuse =
+      previous?.store === store &&
+      previous.hash === hash &&
+      previous.snapshot.data !== undefined &&
+      data !== undefined &&
+      (options.isEqual ?? equal)(previous.snapshot.data, data);
+    let next: QueryState<Selected> = {
+      ...raw,
+      data: reuse ? previous!.snapshot.data : data,
+    };
     const fields = options.notifyOnChangeProps ?? [
       "data",
       "error",

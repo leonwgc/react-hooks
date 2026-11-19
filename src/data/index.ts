@@ -277,15 +277,24 @@ export function useRequest<T, Args extends unknown[] = []>(
   const refresh = useMemoizedFn(() => {
     void refreshAsync().catch(() => {});
   });
-  const mutate = useMemoizedFn((data: T | ((previous: T | undefined) => T)) =>
+  const mutate = useMemoizedFn((data: T | ((previous: T | undefined) => T)) => {
+    // A response that started before the manual update must not overwrite it.
+    if (busy.current) {
+      clearTimeout(loadingTimer.current);
+      sequence.current++;
+      controller.current?.abort();
+      busy.current = false;
+    }
     setState((previous) => ({
       ...previous,
+      loading: false,
+      fetching: false,
       data:
         typeof data === "function"
           ? (data as (previous: T | undefined) => T)(previous.data)
           : data,
-    })),
-  );
+    }));
+  });
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -296,21 +305,17 @@ export function useRequest<T, Args extends unknown[] = []>(
       clearTimeout(loadingTimer.current);
     };
   }, [config, run]);
-  const dependency = useRef<{ values: DependencyList; version: number }>({
-    values: [],
-    version: 0,
-  });
   const deps = options.refreshDeps ?? [];
+  const [dependency, setDependency] = useState<{
+    values: DependencyList;
+    version: number;
+  }>(() => ({ values: [...deps], version: 0 }));
   if (
-    deps.length !== dependency.current.values.length ||
-    deps.some(
-      (value, index) => !Object.is(value, dependency.current.values[index]),
-    )
+    deps.length !== dependency.values.length ||
+    deps.some((value, index) => !Object.is(value, dependency.values[index]))
   )
-    dependency.current = {
-      values: [...deps],
-      version: dependency.current.version + 1,
-    };
+    // Render-phase state update: React discards this render and retries with the new version.
+    setDependency({ values: [...deps], version: dependency.version + 1 });
   useEffect(() => {
     if (options.ready === false) {
       cancel();
@@ -320,7 +325,7 @@ export function useRequest<T, Args extends unknown[] = []>(
   }, [
     options.ready !== false,
     options.manual,
-    dependency.current.version,
+    dependency.version,
     config,
     run,
     cancel,
@@ -417,10 +422,20 @@ export function usePagination(options: PaginationOptions = {}) {
       ? undefined
       : Math.max(1, Math.ceil(total / state.pageSize));
   const page = Math.min(state.page, pageCount ?? Infinity);
+  const limit = useLatest(pageCount ?? Infinity);
+  const step = useMemoizedFn((delta: number) =>
+    setState((previous) => ({
+      ...previous,
+      page: Math.min(
+        positive(Math.min(previous.page, limit.current) + delta),
+        limit.current,
+      ),
+    })),
+  );
   const setPage = useMemoizedFn((value: number) =>
     setState((previous) => ({
       ...previous,
-      page: Math.min(positive(value), pageCount ?? Infinity),
+      page: Math.min(positive(value), limit.current),
     })),
   );
   const setPageSize = useMemoizedFn((value: number) =>
@@ -437,8 +452,8 @@ export function usePagination(options: PaginationOptions = {}) {
     setPage,
     setPageSize,
     reset,
-    next: useMemoizedFn(() => setPage(page + 1)),
-    previous: useMemoizedFn(() => setPage(page - 1)),
+    next: useMemoizedFn(() => step(1)),
+    previous: useMemoizedFn(() => step(-1)),
   };
 }
 export function useSearch<T extends object>(initial: T) {
@@ -452,6 +467,10 @@ export function useSearch<T extends object>(initial: T) {
     draftRef.current = next;
     updateDraft(next);
   });
+  const replaceDraft = useMemoizedFn((next: T) => {
+    draftRef.current = next;
+    updateDraft(next);
+  });
   const submit = useMemoizedFn(() => {
     updateSubmitted(draftRef.current);
     setRevision((n) => n + 1);
@@ -462,7 +481,7 @@ export function useSearch<T extends object>(initial: T) {
     updateSubmitted(defaults.current);
     setRevision((n) => n + 1);
   });
-  return { draft, submitted, revision, setDraft, submit, reset };
+  return { draft, submitted, revision, setDraft, replaceDraft, submit, reset };
 }
 export interface TableQuery<Filters> {
   page: number;
@@ -598,7 +617,7 @@ export function useTable<T, Filters extends object, Response = PageResult<T>>(
       ? presets[name]
       : undefined;
     if (!filters) return false;
-    search.setDraft(filters);
+    search.replaceDraft(filters);
     search.submit();
     setPagination((p) => ({ ...p, page: 1 }));
     return true;
@@ -652,12 +671,15 @@ export function useTable<T, Filters extends object, Response = PageResult<T>>(
           };
         }
         appliedQuery.current = next;
-        hydrating.current = true;
-        setPagination({ page: next.page, pageSize: next.pageSize });
-        updateSort(next.sort);
-        search.setDraft(next.filters);
-        search.submit();
         setStateError(undefined);
+        // Other URL writers (e.g. useUrlState) must not trigger a table refetch.
+        if (!equal(next, queryRef.current)) {
+          hydrating.current = true;
+          setPagination({ page: next.page, pageSize: next.pageSize });
+          updateSort(next.sort);
+          search.replaceDraft(next.filters);
+          search.submit();
+        }
       } catch (error) {
         setStateError(error);
       }
@@ -670,7 +692,13 @@ export function useTable<T, Filters extends object, Response = PageResult<T>>(
       window.removeEventListener("popstate", read);
       window.removeEventListener("web-hooks:url", read);
     };
-  }, [options.urlState?.key, tableOptions, search.setDraft, search.submit]);
+  }, [
+    options.urlState?.key,
+    tableOptions,
+    queryRef,
+    search.replaceDraft,
+    search.submit,
+  ]);
   useEffect(() => {
     const config = options.urlState;
     if (!config || !urlReady) return;
@@ -688,6 +716,8 @@ export function useTable<T, Filters extends object, Response = PageResult<T>>(
         url,
       );
       appliedQuery.current = queryRef.current;
+      // Keep useUrlState subscribers in sync; our own listener sees an unchanged query.
+      window.dispatchEvent(new Event("web-hooks:url"));
     } catch (error) {
       setStateError(error);
     }
@@ -884,17 +914,20 @@ export function useSelection<Key extends string | number>(
     anchor.current = undefined;
     update(() => new Set());
   });
+  // With maxSelected, reaching the limit counts as "all" so toggleAll can clear.
+  const isFull = (set: ReadonlySet<Key>) => {
+    const count = eligible.filter((key) => set.has(key)).length;
+    return count > 0 && (count === eligible.length || set.size >= limit);
+  };
   const toggleAll = useMemoizedFn(() =>
     update((previous) => {
-      const all =
-        eligible.length > 0 && eligible.every((key) => previous.has(key));
+      const all = isFull(previous);
       const next = new Set(previous);
       eligible.forEach((key) => (all ? next.delete(key) : next.add(key)));
       return next;
     }),
   );
-  const allSelected =
-    eligible.length > 0 && eligible.every((key) => selected.has(key));
+  const allSelected = isFull(selected);
   return {
     selected,
     selectedKeys: [...selected],

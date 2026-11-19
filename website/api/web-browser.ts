@@ -87,6 +87,7 @@ export const webBrowserDocs = {
     types: targetType,
     notes: [
       "通过用户手势调用；active 也随 Esc 或其他外部 fullscreenchange 更新。卸载只解除监听，不自动退出全屏。",
+      "标准 API 不可用时回退到 webkit 前缀实现（webkitRequestFullscreen / webkitExitFullscreen / webkitfullscreenchange），以支持旧版 Safari。",
     ],
   },
   useBroadcastChannel: {

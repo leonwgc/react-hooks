@@ -50,9 +50,10 @@ describe("forms", () => {
         },
       }),
     );
+    const save = vi.fn();
     let old!: Promise<boolean>;
     act(() => {
-      old = result.current.handleSubmit(vi.fn())();
+      old = result.current.handleSubmit(save)();
     });
     act(() => result.current.setFieldValue("name", "new"));
     await act(async () => {
@@ -62,8 +63,15 @@ describe("forms", () => {
     expect(result.current.errors).toEqual({});
     await act(async () => {
       pending.get("old")?.("already taken");
-      await old;
+      await Promise.resolve();
+      await Promise.resolve();
     });
+    // The submission revalidates the latest values instead of failing silently.
+    await act(async () => {
+      pending.get("new")?.(undefined);
+      await expect(old).resolves.toBe(true);
+    });
+    expect(save).toHaveBeenCalledWith({ name: "new" });
     expect(result.current.errors).toEqual({});
     expect(result.current.isValidating).toBe(false);
   });

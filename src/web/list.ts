@@ -41,14 +41,16 @@ export function useInfiniteScroll<T, Cursor>(
   }>({ items: [], loading: false, error: undefined, hasMore: true });
   const config = useLatest(options);
   const call = useMemoizedFn(service);
-  const cursor = useRef<Cursor | null>(options.initialCursor);
+  const cursor = useRef<Cursor>(options.initialCursor);
+  // Tracked separately so `null` remains a valid initial cursor.
+  const exhausted = useRef(false);
   const sequence = useRef(0);
   const controller = useRef<AbortController | undefined>(undefined);
   const pending = useRef<Promise<void> | undefined>(undefined);
   const mounted = useRef(true);
   const loadMore = useMemoizedFn((): Promise<void> => {
     if (pending.current) return pending.current;
-    if (cursor.current === null || !mounted.current) return Promise.resolve();
+    if (exhausted.current || !mounted.current) return Promise.resolve();
     const id = sequence.current;
     const abort = new AbortController();
     controller.current = abort;
@@ -59,7 +61,8 @@ export function useInfiniteScroll<T, Cursor>(
       .then((page) => {
         if (!mounted.current || id !== sequence.current || abort.signal.aborted)
           throw abortError();
-        cursor.current = page.nextCursor;
+        exhausted.current = page.nextCursor === null;
+        if (page.nextCursor !== null) cursor.current = page.nextCursor;
         setState((s) => {
           let items =
             config.current.direction === "prepend"
@@ -100,6 +103,7 @@ export function useInfiniteScroll<T, Cursor>(
     controller.current?.abort();
     pending.current = undefined;
     cursor.current = config.current.initialCursor;
+    exhausted.current = false;
     setState({ items: [], loading: false, error: undefined, hasMore: true });
     if (!config.current.manual) void loadMore();
   });
@@ -131,22 +135,39 @@ export function useInfiniteScroll<T, Cursor>(
       reset();
     }
   }, [options.resetKey, options.initialCursor, reset]);
+  const canLoad = state.hasMore && !state.loading && !state.error;
+  const canLoadRef = useLatest(canLoad);
+  const intersecting = useRef(false);
+  const watched = useRef<{ node: Element; observer: IntersectionObserver } | null>(
+    null,
+  );
+  // Ref targets can change without a new ref object, so the node is checked after
+  // each commit, but the observer is only recreated when the node actually changes.
   useEffect(() => {
-    const target = options.sentinel ? resolveTarget(options.sentinel) : null;
-    if (
-      !target ||
-      typeof IntersectionObserver === "undefined" ||
-      !state.hasMore ||
-      state.loading ||
-      state.error
-    )
-      return;
+    const node = options.sentinel ? resolveTarget(options.sentinel) : null;
+    if (watched.current?.node === node) return;
+    watched.current?.observer.disconnect();
+    watched.current = null;
+    intersecting.current = false;
+    if (!node || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      intersecting.current = entries.some((entry) => entry.isIntersecting);
+      if (intersecting.current && canLoadRef.current) void loadMore();
     });
-    observer.observe(target);
-    return () => observer.disconnect();
+    observer.observe(node);
+    watched.current = { node, observer };
   });
+  useEffect(
+    () => () => {
+      watched.current?.observer.disconnect();
+      watched.current = null;
+    },
+    [],
+  );
+  // IntersectionObserver only reports changes; keep loading while the sentinel stays visible.
+  useEffect(() => {
+    if (canLoad && intersecting.current) void loadMore();
+  }, [canLoad, state.items, loadMore]);
   return { ...state, loadMore, retry: loadMore, reset, cancel };
 }
 
@@ -178,8 +199,10 @@ export function useVirtualList<T>(
     const keys: Key[] = [];
     const offsets = [0];
     const indices = new Map<Key, number>();
+    // Read through a ref so an inline getKey does not invalidate geometry every render.
+    const getKey = config.current.getKey;
     items.forEach((item, index) => {
-      const key = options.getKey(item, index);
+      const key = getKey(item, index);
       keys.push(key);
       indices.set(key, index);
       offsets.push(
@@ -189,7 +212,7 @@ export function useVirtualList<T>(
       );
     });
     return { keys, offsets, indices, total: offsets.at(-1)! };
-  }, [items, options.getKey, options.itemHeight, options.dynamic, sizes]);
+  }, [items, options.itemHeight, options.dynamic, sizes]);
   const geometryRef = useLatest(geometry);
   const findIndex = (offsets: number[], top: number) => {
     let low = 0,

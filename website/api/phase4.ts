@@ -136,7 +136,7 @@ export const phase4Docs = {
             type: "boolean",
             defaultValue: "true",
             description:
-              "false 启用前缀匹配：数组按完整元素前缀匹配，字符串按 startsWith 匹配；不做对象部分字段匹配。启用订阅者会重新请求。",
+              "false 启用前缀匹配：数组按完整元素前缀匹配；字符串按单词边界匹配（\"user\" 匹配 \"user\"、\"user:1\"、\"user/1\" 和首元素为 \"user\" 的数组键，不匹配 \"users\"）；不做对象部分字段匹配。启用订阅者会重新请求。",
           },
         ],
       },
@@ -607,6 +607,13 @@ export const phase4Docs = {
             description: "首次 open 为 true 时是否也经历 entering。",
           },
           {
+            name: "preEnter",
+            type: "boolean",
+            defaultValue: "false",
+            description:
+              "从 unmounted 进入时先经过 preEnter 阶段（已挂载、应用起始样式）两帧，再切到 entering，使新挂载元素上的 CSS transition 能真正播放。使用 @keyframes 动画时无需开启。",
+          },
+          {
             name: "endEvent",
             type: "'transitionend' | 'animationend'",
             defaultValue: "'transitionend'",
@@ -682,7 +689,7 @@ export const phase4Docs = {
       },
     ],
     types:
-      "type TransitionPhase = 'unmounted' | 'entering' | 'entered' | 'exiting';\ninterface TransitionStateOptions {\n  enterDuration?: number; exitDuration?: number; appear?: boolean;\n  endEvent?: \"transitionend\" | \"animationend\";\n  propertyName?: string; animationName?: string;\n  onEnter?: () => void; onEntered?: () => void;\n  onExit?: () => void; onExited?: () => void;\n}",
+      "type TransitionPhase = 'unmounted' | 'preEnter' | 'entering' | 'entered' | 'exiting';\ninterface TransitionStateOptions {\n  enterDuration?: number; exitDuration?: number; appear?: boolean;\n  preEnter?: boolean; // 仅开启时出现 'preEnter' 阶段\n  endEvent?: \"transitionend\" | \"animationend\";\n  propertyName?: string; animationName?: string;\n  onEnter?: () => void; onEntered?: () => void;\n  onExit?: () => void; onExited?: () => void;\n}",
     notes: [
       "本 Hook 管理挂载时序，不自动添加 CSS 动画。将 phase 映射到类名或样式，并让 CSS 时长与配置一致。",
       "系统要求减少动态效果时立即完成阶段切换。修改时长会重新计时；卸载清理所有计时器。",

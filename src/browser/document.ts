@@ -100,6 +100,12 @@ export function useTextareaAutoSize(
     const padding = number(style.paddingTop) + number(style.paddingBottom);
     const border =
       number(style.borderTopWidth) + number(style.borderBottomWidth);
+    // Collapsing to 0px for measurement can shrink the page and clamp scroll
+    // positions; remember and restore every scrolled ancestor.
+    const scrolled: [Element, number][] = [];
+    for (let parent = node.parentElement; parent; parent = parent.parentElement)
+      if (parent.scrollTop) scrolled.push([parent, parent.scrollTop]);
+    const pageY = typeof window === "undefined" ? 0 : window.scrollY;
     node.style.height = "0px";
     const content = Math.max(0, node.scrollHeight - padding);
     const size = Math.max(minRows * line, Math.min(maxRows * line, content));
@@ -107,18 +113,24 @@ export function useTextareaAutoSize(
       size + (style.boxSizing === "border-box" ? padding + border : 0);
     node.style.height = `${next}px`;
     node.style.overflowY = content > maxRows * line ? "auto" : "hidden";
+    for (const [parent, top] of scrolled)
+      if (parent.scrollTop !== top) parent.scrollTop = top;
+    if (typeof window !== "undefined" && window.scrollY !== pageY)
+      window.scrollTo(window.scrollX, pageY);
     setHeight((previous) => (previous === next ? previous : next));
   });
   const binding = useRef<{
     node: HTMLTextAreaElement;
     cleanup: () => void;
   } | null>(null);
+  const measured = useRef("");
   // Refs may start pointing at a new textarea without changing the ref object.
   useBrowserLayoutEffect(() => {
     const node = enabled ? resolveTarget(target) : null;
     if (binding.current?.node !== node) {
       binding.current?.cleanup();
       binding.current = null;
+      measured.current = "";
       if (node) {
         const original = {
           height: node.style.height,
@@ -158,8 +170,17 @@ export function useTextareaAutoSize(
         };
       }
     }
-    if (node) resize();
-    else setHeight((previous) => (previous === 0 ? previous : 0));
+    // Measuring forces a synchronous reflow, so skip renders where nothing relevant changed.
+    const signature = `${value}\u0000${minRows}\u0000${maxRows}`;
+    if (node) {
+      if (measured.current !== signature) {
+        measured.current = signature;
+        resize();
+      }
+    } else {
+      measured.current = "";
+      setHeight((previous) => (previous === 0 ? previous : 0));
+    }
   });
   useBrowserLayoutEffect(
     () => () => {

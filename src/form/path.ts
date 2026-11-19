@@ -29,19 +29,23 @@ export type FieldValue<
       : never;
 function parts(path: string) {
   const keys = path.split(".");
-  if (
-    keys.some(
-      (key) =>
-        ["__proto__", "prototype", "constructor"].includes(key) || key === "",
-    )
-  )
+  if (keys.some((key) => key === "__proto__" || key === ""))
     throw new Error("Invalid field path");
   return keys;
+}
+const own = (value: object, key: string) =>
+  Object.prototype.hasOwnProperty.call(value, key);
+function shallowCopy(value: object): Record<string, unknown> | unknown[] {
+  if (Array.isArray(value)) return [...value];
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null
+    ? { ...value }
+    : Object.assign(Object.create(prototype), value);
 }
 export function getPath(value: unknown, path: string): unknown {
   return parts(path).reduce<unknown>(
     (result, key) =>
-      result !== null && typeof result === "object"
+      result !== null && typeof result === "object" && own(result, key)
         ? Reflect.get(result, key)
         : undefined,
     value,
@@ -52,14 +56,19 @@ export function setPath<T>(value: T, path: string, next: unknown): T {
   const visit = (current: unknown, index: number): unknown => {
     if (index === keys.length) return next;
     const key = keys[index];
-    const copy: Record<string, unknown> | unknown[] = Array.isArray(current)
-      ? [...current]
-      : current && typeof current === "object"
-        ? { ...current }
+    const copy =
+      current && typeof current === "object"
+        ? shallowCopy(current)
         : /^\d+$/.test(key)
           ? []
           : {};
-    Reflect.set(copy, key, visit(Reflect.get(copy, key), index + 1));
+    const child = own(copy, key) ? Reflect.get(copy, key) : undefined;
+    Reflect.defineProperty(copy, key, {
+      value: visit(child, index + 1),
+      writable: true,
+      enumerable: true,
+      configurable: true,
+    });
     return copy;
   };
   return visit(value, 0) as T;
@@ -68,15 +77,15 @@ export function setPath<T>(value: T, path: string, next: unknown): T {
 export function unsetPath<T>(value: T, path: string): T {
   const keys = parts(path);
   const visit = (current: unknown, index: number): unknown => {
-    if (
-      !current ||
-      typeof current !== "object" ||
-      !Object.prototype.hasOwnProperty.call(current, keys[index])
-    )
+    if (!current || typeof current !== "object" || !own(current, keys[index]))
       return current;
-    const copy = Array.isArray(current) ? [...current] : { ...current };
-    if (index === keys.length - 1) Reflect.deleteProperty(copy, keys[index]);
-    else
+    const copy = shallowCopy(current);
+    if (index === keys.length - 1) {
+      // Removing an array element must not leave a sparse hole.
+      if (Array.isArray(copy) && /^\d+$/.test(keys[index]))
+        copy.splice(Number(keys[index]), 1);
+      else Reflect.deleteProperty(copy, keys[index]);
+    } else
       Reflect.set(
         copy,
         keys[index],
