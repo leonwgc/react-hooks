@@ -928,6 +928,46 @@ export const useCases = {
         description:
           "onBlur 模式下离开姓名只显示姓名错误，未交互的邮箱不会提前报错。",
       },
+      {
+        title: "声明式规则与无障碍错误",
+        description:
+          "register 直接声明 required、长度、pattern、min 与自定义 validate；criteriaMode: 'all' 列出全部失败规则，错误通过 aria-describedby 关联到输入框。",
+      },
+      {
+        title: "异步查重的中止与字段级 loading",
+        description:
+          "连续输入会通过 signal 中止上一次查重；validatingFields 为每个字段单独显示校验中，两个字段可以同时校验。",
+      },
+      {
+        title: "异步加载编辑数据",
+        description:
+          "loadValues 加载服务端数据作为基准，加载期间显示 isLoading；修改后 dirtyFields 精确列出改动字段，可重新加载。",
+      },
+      {
+        title: "外部数据刷新保留用户修改",
+        description:
+          "values 变化时自动同步，keepDirtyValues 保留用户已改的字段，其余字段更新为服务端新值。",
+      },
+      {
+        title: "提交转换、失败回调与服务端错误",
+        description:
+          "transform 在提交前整理数据，onInvalid 接收校验失败；服务端拒绝时用 setErrors 回填字段错误，并显示 submitCount 与 isSubmitSuccessful。",
+      },
+      {
+        title: "草稿自动保存与恢复",
+        description:
+          "persist 防抖保存到 localStorage，关闭后重新打开会恢复草稿；密码字段被 exclude，发布成功后自动清除草稿。",
+      },
+      {
+        title: "Standard Schema 适配",
+        description:
+          "standardSchema 接入 Zod、Valibot、ArkType 等实现 Standard Schema 的校验库；失焦时只采纳当前字段的错误。",
+      },
+      {
+        title: "按字段渲染与程序化赋值",
+        description:
+          "字段通过 useFormField、预览通过 useWatch 订阅，修改字段时表单根组件不重渲染；shouldDirty: false 赋值后字段仍视为未修改。",
+      },
     ],
   },
   useFieldArray: {
@@ -954,6 +994,11 @@ export const useCases = {
         description:
           "更新一行保留 ID，头部插入不改变旧行身份；重置数组则为全部行重新生成 ID。",
       },
+      {
+        title: "通配校验、数组规则与记录 key",
+        description:
+          "validators 使用 members.*.name 通配路径校验每一行，rules 限制成员数量；getKey 让外部 setValues 重排后 key 仍跟随记录。",
+      },
     ],
   },
   useFormField: {
@@ -967,6 +1012,22 @@ export const useCases = {
       {
         title: "嵌套路径与外部重置",
         description: "订阅嵌套字段，父表单直接写入或重置后订阅者同步更新。",
+      },
+    ],
+  },
+  useWatch: {
+    overview:
+      "只读订阅表单中的一个字段或整个表单，适合实时预览、条件显示和汇总计算；订阅组件独立重渲染，不会带动整个表单。",
+    scenarios: [
+      {
+        title: "条件显示与渲染计数",
+        description:
+          "只订阅配送方式，选择快递时才显示地址字段；修改备注不会让条件区域重渲染。",
+      },
+      {
+        title: "订阅整个表单生成预览",
+        description:
+          "省略 path 订阅全部值，实时生成订单摘要；表单根组件本身保持不重渲染。",
       },
     ],
   },

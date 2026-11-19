@@ -332,20 +332,27 @@ export const catalog = [
   {
     name: "useForm",
     category: "表单",
-    description: "管理类型化表单、字段生命周期、校验与错误聚焦。",
-    note: "默认保留卸载字段；shouldUnregister 依赖 register.ref/getFieldRef，条件字段须声明可选。resetField 只恢复对应基准，提交聚焦需启用 shouldFocusError。异步旧校验结果不会覆盖新值，schema 需兼容条件字段。",
+    description:
+      "管理类型化表单、声明式规则、可中止的字段级校验、按需渲染与草稿持久化。",
+    note: "组件只订阅读取过的状态，字段交给 useFormField/useWatch 可避免整表重渲染。每个字段的异步校验独立运行并通过 signal 中止；跨字段依赖在 dependencies 中声明。默认保留卸载字段；shouldUnregister 依赖 register.ref/getFieldRef。外部数据用 values/loadValues 同步，schema 可用 standardSchema/yupSchema 适配。",
   },
   {
     name: "useFieldArray",
     category: "表单",
     description: "管理动态字段数组，让身份、错误和触碰状态随记录移动。",
-    note: "请以 fields[].id 为 React key。插入、移动、交换保持旧行身份和元数据；update 保留身份，replace/reset/resetField 会重建相关 ID。删除只移除被删行元数据；避免绕过 Hook 改变数组结构。",
+    note: "请以 fields[].id 为 React key；传入 getKey 时使用记录自身标识。插入、移动、交换保持旧行身份和元数据；update 保留身份，replace/reset/resetField 会重建生成的 ID。rules 声明数组级规则，行内字段可用 rows.*.name 通配校验。",
   },
   {
     name: "useFormField",
     category: "表单",
     description: "订阅单个字段，减少无关字段的重新渲染。",
-    note: "基于 useSyncExternalStore 订阅选中字段，搭配 React.memo 与稳定 control 作为组件属性。useForm 宿主仍正常响应全表状态；只隔离 memo 字段，避免夸大全表零渲染。可自行绑定原生或第三方输入控件。",
+    note: "基于 useSyncExternalStore 订阅选中字段，搭配 React.memo 与稳定 control 作为组件属性。表单根组件只订阅自己读取过的状态，不读取 values 时修改该字段不会重渲染根组件。可自行绑定原生或第三方输入控件。",
+  },
+  {
+    name: "useWatch",
+    category: "表单",
+    description: "只读订阅一个表单字段或整个表单，用于预览和条件显示。",
+    note: "只在所选路径的值变化时重渲染调用组件，不会让表单根组件重渲染。省略 path 时订阅整个表单。修改值请使用 setFieldValue 或 useFormField。",
   },
   {
     name: "useSortable",

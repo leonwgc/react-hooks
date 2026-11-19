@@ -136,7 +136,7 @@ export const phase4Docs = {
             type: "boolean",
             defaultValue: "true",
             description:
-              "false 启用前缀匹配：数组按完整元素前缀匹配；字符串按单词边界匹配（\"user\" 匹配 \"user\"、\"user:1\"、\"user/1\" 和首元素为 \"user\" 的数组键，不匹配 \"users\"）；不做对象部分字段匹配。启用订阅者会重新请求。",
+              'false 启用前缀匹配：数组按完整元素前缀匹配；字符串按单词边界匹配（"user" 匹配 "user"、"user:1"、"user/1" 和首元素为 "user" 的数组键，不匹配 "users"）；不做对象部分字段匹配。启用订阅者会重新请求。',
           },
         ],
       },

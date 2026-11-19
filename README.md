@@ -1,6 +1,6 @@
 # Web Hooks
 
-面向各类 Web 站点的 **67 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
+面向各类 Web 站点的 **68 个 React Hooks**，覆盖状态管理、浏览器交互、请求与列表、动画和表单。独立使用、自由组合，不绑定 UI 组件库。
 
 [文档与在线演示](https://leonwgc.github.io/react-hooks/) · [全部源码](https://github.com/leonwgc/react-hooks/tree/master/src) · [反馈问题](https://github.com/leonwgc/react-hooks/issues)
 
@@ -13,8 +13,8 @@
 - 浏览器 API 挂载后访问，支持 SSR 安全导入与 hydration。
 - 请求取消、竞态隔离、轮询；搜索、分页、排序与跨页选择。
 - 原生 Web Animations API、逐帧循环和减少动态效果偏好。
-- 表单字段、嵌套路径、同步/异步/跨字段校验、动态字段数组。
-- 中文文档、67 个基础演示与 150 组补充交互场景、示例源码与完整列表编辑场景。
+- 表单字段、嵌套路径、声明式规则、可中止的字段级异步校验、Schema 适配、按字段订阅渲染、草稿持久化与动态字段数组。
+- 中文文档、68 个基础演示与 176 组补充交互场景、示例源码与完整列表编辑场景。
 - 单个 npm 项目，直接使用目录组织；**不使用 workspaces**。库与站点都由 **Vite 8+** 构建。
 
 ## 安装
@@ -111,17 +111,17 @@ async function saveEmail(email: string) {
 | 交互与存储（15）   | `useDrag`、`useDrop`、`useBroadcastChannel`、`useFocusWithin`、`useLongPress`、`useClickOutside`、`useKeyPress`、`useClipboard`、`useLocalStorageState`、`useSessionStorageState`、`useUrlState`、`useCountdown`、`useSortable`、`useObjectURL`、`useGesture`                 |
 | 浏览器与视口（15） | `useFullscreen`、`useEventSource`、`useDownload`、`useImage`、`useTextSelection`、`useMutationObserver`、`useEventListener`、`useMediaQuery`、`useWindowSize`、`useElementSize`、`useIntersectionObserver`、`useScroll`、`useOnline`、`usePageVisibility`、`useDocumentTitle` |
 | 动画（5）          | `useAnimate`、`useRafLoop`、`useReducedMotion`、`useSpring`、`useTransitionState`                                                                                                                                                                                             |
-| 表单（5）          | `useForm`、`useFieldArray`、`useFormField`、`useSteps`、`useTextareaAutoSize`                                                                                                                                                                                                 |
+| 表单（6）          | `useForm`、`useFieldArray`、`useFormField`、`useWatch`、`useSteps`、`useTextareaAutoSize`                                                                                                                                                                                     |
 
 每个 Hook 的 TypeScript 调用签名、泛型含义与约束、逐项配置与默认值、返回状态、方法签名、关联类型和行为边界均可在[文档站](https://leonwgc.github.io/react-hooks/)查看。参数类型列支持就地展开泛型说明，例如 `Cursor` 的推断方式、可选类型及分页结束标记。
 
-每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。合计 150 组补充演示，可分别展开、收起和重新开始，每个示例正下方提供对应源码、高亮和复制，包含独立运行所需的辅助函数。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
+每个 Hook 提供功能描述、使用场景、基础演示和至少两组独立交互场景。合计 176 组补充演示，可分别展开、收起和重新开始，每个示例正下方提供对应源码、高亮和复制，包含独立运行所需的辅助函数。返回值章节按真实的对象、元组、函数、单值或 `void` 组织，明确区分返回对象的属性和方法。覆盖列表见 [website/DEMO_COVERAGE.md](./website/DEMO_COVERAGE.md)。
 
 ## 重要约定
 
 - **请求**：默认手动；自动请求传入 `manual: false` 和 `defaultParams`。`run` 通过状态呈现错误；`runAsync` / `refreshAsync` 需要处理 Promise 拒绝。旧请求会拒绝为 `AbortError`，不会覆盖新结果。服务函数应使用 `signal` 来中止实际网络任务。
 - **列表**：页码从 1 开始；提交搜索、排序或修改 pageSize 回到第一页。响应由 `select` 映射为 `{ list, total }`。默认选中状态限当前页；跨页选择显式设置 `preserve`，查询条件通过 `resetKey` 关联清空。
-- **表单**：默认提交校验，首次提交后变化重验；异步校验有竞态保护。嵌套路径使用点号。`initialValues` 后续变化不自动回填，使用 `reset(record)`。数组增删排序使用 `useFieldArray`，以 `field.id` 为 key。字段结构改变会清除对应数组的校验元数据。数字输入空值为 `NaN`，需用 `Number.isFinite` 验证。
+- **表单**：默认提交校验，首次提交后变化重验；失焦/输入校验只针对触发字段。每个字段的异步校验独立运行，并通过 `signal` 中止过期任务。嵌套路径使用点号，数组项规则可用 `rows.*.name` 通配。`initialValues` 后续变化不自动回填；同步外部数据用 `values`（可 `keepDirtyValues`），异步加载用 `loadValues`。数组增删排序使用 `useFieldArray`，以 `field.id` 为 key。数字输入建议 `valueAsNumber`（空值为 `undefined`），否则空值为 `NaN`。组件只订阅读取过的表单状态，字段可交给 `useFormField` / `useWatch` 渲染以避免整表重渲染。
 - **存储**：只保存 JSON 可序列化值，解析或写入失败通过 `error` 呈现。默认比较器处理普通对象、数组、Date 和基本类型，不处理循环引用；复杂对象需自定义比较器。
 - **URL**：`useUrlState` 管理浏览器查询参数，保留 hash 和 history.state；其他路由器应使用其官方适配能力。不要把敏感信息写入 URL。
 - **SSR**：浏览器数据挂载后更新；尺寸初始为 0，存储初始为默认值。Next.js 中在客户端组件调用。Strict Mode 可能重复触发自动请求，第一轮会取消；写操作应由明确的用户动作触发。
@@ -150,8 +150,8 @@ website/                # 文档站源码
   content/              # MDX 使用指南
   demos/                # 每个 Hook 的独立可运行示例
   catalog.ts            # 文档目录与行为边界
-  api/                  # 67 个 Hooks 的逐字段 API 文档及返回结构
-  examples/             # 150 个独立 TSX 示例模块、场景编排与对应源码
+  api/                  # 68 个 Hooks 的逐字段 API 文档及返回结构
+  examples/             # 176 个独立 TSX 示例模块、场景编排与对应源码
   useCases.ts           # 每个 Hook 的功能描述与使用场景
   DEMO_COVERAGE.md       # 演示场景覆盖清单
 docs/                   # Vite 生成的 GitHub Pages 发布产物
@@ -219,6 +219,22 @@ Pages 设置选择 **Deploy from a branch → master → /docs**。`website/` �
 | useTransitionState | 四阶段回调、真实结束事件、属性/动画名过滤与超时兜底                |
 
 注意：队列超时不会自动重试；尚未真正结束的底层任务继续占用并发槽。查询选择器不改变缓存原始类型。条件表单字段应声明为可选，并保留 register 的 ref。字段数组元数据现在随记录移动；需要清空时可显式 resetField 或 replace。
+
+## 表单增强
+
+`useForm` 改为按需订阅的外部 store，新增 `useWatch`，总数 68。现有调用方式保持兼容。
+
+| 方向         | 能力                                                                                                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------------- |
+| 性能         | 组件只在读取过的状态变化时重渲染；`useFormField` / `useWatch` / `useFieldArray` 按路径订阅；`dirtyFields` 增量计算               |
+| 校验         | 字段级异步校验与 `signal` 中止、`validatingFields`、`rows.*.name` 通配、`register` 声明式规则、数组级规则、`criteriaMode: "all"` |
+| 错误         | `errorDetails`（`type` / `message` / `types`）、`setErrors` 批量回填服务端错误                                                   |
+| 值与生命周期 | `values` + `keepDirtyValues`、`loadValues` / `isLoading` / `reloadValues`、`valueAsNumber` / `setValueAs`、`setFieldValue` 选项  |
+| 提交         | `submitCount`、`isSubmitSuccessful`、`handleSubmit(onValid, onInvalid)` 与 `transform`                                           |
+| 可访问性     | `register` 生成 `id`、`aria-describedby`、`aria-errormessage`、`aria-required`；`getErrorProps`                                  |
+| 生态         | `standardSchema`（Zod / Valibot / ArkType）与 `yupSchema` 适配器；`useFieldArray` 的 `getKey`；`persist` 草稿持久化              |
+
+注意：`register` 现在会输出 `id`，同一路径注册多个非选项控件时请自行传入不同 `id`。每个字段的异步结果只会被该字段自身、其祖先/子路径或 `dependencies` 中声明的源字段变化作废；跨字段依赖请在 `dependencies` 中声明。
 
 ## 参考与许可证
 

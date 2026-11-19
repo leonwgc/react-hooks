@@ -113,7 +113,7 @@ function Home() {
           <p className="hero-description">
             从一个开关，到完整的交互。
             <br />
-            67 个轻量、类型安全的 React Hooks，
+            68 个轻量、类型安全的 React Hooks，
             <br className="desktop-break" />
             为每一种 Web 体验提供可靠的起点。
           </p>
@@ -171,7 +171,7 @@ function Home() {
       <div className="stats-strip">
         <div className="container stats-grid">
           <div>
-            <strong>67</strong>
+            <strong>68</strong>
             <span>精心组织的 Hooks</span>
           </div>
           <div>
@@ -535,7 +535,7 @@ function App() {
                 );
               })}
               <div className="sidebar-footer">
-                67 HOOKS · ENDLESS POSSIBILITIES
+                68 HOOKS · ENDLESS POSSIBILITIES
               </div>
             </aside>
             <div className="doc-layout-content">

@@ -5,7 +5,7 @@ import * as hooks from "../src";
 it("exports all public hooks and server-renders every browser-dependent hook safely", () => {
   expect(
     Object.keys(hooks).filter((name) => name.startsWith("use")),
-  ).toHaveLength(67);
+  ).toHaveLength(68);
   function ServerExample() {
     hooks.useEventListener("click", () => {});
     hooks.useWindowSize();
@@ -64,6 +64,7 @@ it("exports all public hooks and server-renders every browser-dependent hook saf
     const form = hooks.useForm({ initialValues: { rows: ["x"] } });
     hooks.useFieldArray(form, "rows");
     hooks.useFormField(form.control, "rows");
+    hooks.useWatch(form.control, "rows");
     hooks.useSortable(["x"], { getKey: (value) => value, onChange: () => {} });
     return <span>{storage.value}</span>;
   }

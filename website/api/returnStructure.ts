@@ -35,6 +35,7 @@ export const returnKinds = {
   useFocusWithin: "object",
   useForm: "object",
   useFormField: "object",
+  useWatch: "value",
   useFullscreen: "object",
   useImage: "object",
   useInfiniteScroll: "object",

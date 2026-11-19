@@ -7,6 +7,8 @@ import Enhanced1 from "./useFieldArray/Enhanced1";
 import Enhanced1Source from "./useFieldArray/Enhanced1.tsx?raw";
 import Enhanced2 from "./useFieldArray/Enhanced2";
 import Enhanced2Source from "./useFieldArray/Enhanced2.tsx?raw";
+import Feature1 from "./useFieldArray/Feature1";
+import Feature1Source from "./useFieldArray/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="更新一行保留 ID，头部插入不改变旧行身份；重置数组则为全部行重新生成 ID。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="通配校验、数组规则与记录 key"
+        description="validators 使用 members.*.name 通配路径校验每一行，rules 限制成员数量；getKey 让外部 setValues 重排后 key 仍跟随记录。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

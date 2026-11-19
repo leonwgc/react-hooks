@@ -110,3 +110,21 @@
 | usePagination      | 连续翻页不丢步                  | 同一事件内多次 `next`                             |
 | useDrag            | 拖拽源中途卸载后复位            | 全局 drop/pointerdown 复位 `dragging`             |
 | useImage           | 切换图片不闪现旧结果            | 新 `src` 立即报告 loading                         |
+
+## 表单增强场景
+
+新增 `useWatch`（基础演示 + 2 组场景），并为 `useForm` 新增 8 组、`useFieldArray` 新增 1 组场景，合计 68 个基础演示与 176 组补充演示。
+
+| Hook          | 新增场景                       | 演示的行为                                                  |
+| ------------- | ------------------------------ | ----------------------------------------------------------- |
+| useWatch      | 条件显示与渲染计数             | 按路径订阅，条件区域不受其他字段影响                        |
+| useWatch      | 订阅整个表单生成预览           | 省略 path 订阅全部值，根组件不重渲染                        |
+| useForm       | 声明式规则与无障碍错误         | register 规则、`criteriaMode: "all"`、`getErrorProps`       |
+| useForm       | 异步查重的中止与字段级 loading | `signal` 中止、`validatingFields`、多字段并发校验           |
+| useForm       | 异步加载编辑数据               | `loadValues`、`isLoading`、`reloadValues`、`dirtyFields`    |
+| useForm       | 外部数据刷新保留用户修改       | `values` + `resetOptions.keepDirtyValues`                   |
+| useForm       | 提交转换、失败回调与服务端错误 | `transform`、`onInvalid`、`setErrors`、`submitCount`        |
+| useForm       | 草稿自动保存与恢复             | `persist`、`exclude`、提交后清除                            |
+| useForm       | Standard Schema 适配           | `standardSchema`、按路径采纳 schema 错误                    |
+| useForm       | 按字段渲染与程序化赋值         | 按需订阅、`useFormField` / `useWatch`、`shouldDirty: false` |
+| useFieldArray | 通配校验、数组规则与记录 key   | `members.*.name`、`rules.minLength/maxLength`、`getKey`     |
