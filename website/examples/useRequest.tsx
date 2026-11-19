@@ -7,6 +7,8 @@ import Enhanced1 from "./useRequest/Enhanced1";
 import Enhanced1Source from "./useRequest/Enhanced1.tsx?raw";
 import Enhanced2 from "./useRequest/Enhanced2";
 import Enhanced2Source from "./useRequest/Enhanced2.tsx?raw";
+import Feature1 from "./useRequest/Feature1";
+import Feature1Source from "./useRequest/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="快请求不闪烁 loading；慢请求延迟显示加载，取消不触发 onFinally。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="本地修改中止旧请求"
+        description="慢请求进行中调用 mutate 会中止该请求，旧响应不会覆盖本地修改。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

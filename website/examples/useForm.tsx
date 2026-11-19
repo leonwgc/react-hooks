@@ -7,6 +7,10 @@ import Enhanced1 from "./useForm/Enhanced1";
 import Enhanced1Source from "./useForm/Enhanced1.tsx?raw";
 import Enhanced2 from "./useForm/Enhanced2";
 import Enhanced2Source from "./useForm/Enhanced2.tsx?raw";
+import Feature1 from "./useForm/Feature1";
+import Feature1Source from "./useForm/Feature1.tsx?raw";
+import Feature2 from "./useForm/Feature2";
+import Feature2Source from "./useForm/Feature2.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +41,20 @@ export default function Examples() {
         description="勾选移除策略后，隐藏字段会注销其值与校验；默认隐藏后仍保留。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="单选组、复选框组、多选与文件"
+        description="register 传入 value 绑定 radio 与复选框组，数组字段配合 select multiple，type: 'file' 时值为 File[]。"
+      >
+        <Feature1 />
+      </Scenario>
+      <Scenario
+        source={Feature2Source}
+        title="失焦只校验当前字段"
+        description="onBlur 模式下离开姓名只显示姓名错误，未交互的邮箱不会提前报错。"
+      >
+        <Feature2 />
       </Scenario>
     </div>
   );

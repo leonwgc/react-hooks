@@ -3,6 +3,8 @@ import Case1 from "./useUpload/Case1";
 import Case1Source from "./useUpload/Case1.tsx?raw";
 import Case2 from "./useUpload/Case2";
 import Case2Source from "./useUpload/Case2.tsx?raw";
+import Feature1 from "./useUpload/Feature1";
+import Feature1Source from "./useUpload/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -19,6 +21,13 @@ export default function Examples() {
         description="暂停只阻止新任务启动，正在进行的任务继续；可取消全部并清除已结束任务。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="容量上限与重试替换"
+        description="容量为 2 时第三个文件被拒绝并返回 accepted: false；失败文件重试会替换原行而不是新增重复项。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

@@ -3,6 +3,8 @@ import Case1 from "./usePagination/Case1";
 import Case1Source from "./usePagination/Case1.tsx?raw";
 import Case2 from "./usePagination/Case2";
 import Case2Source from "./usePagination/Case2.tsx?raw";
+import Feature1 from "./usePagination/Feature1";
+import Feature1Source from "./usePagination/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -19,6 +21,13 @@ export default function Examples() {
         description="先跳到最后一页，再减少总数或清空数据，观察页码限制。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="连续翻页不丢步"
+        description="同一事件中连续调用三次 next 会前进三页，并在最后一页处停止。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

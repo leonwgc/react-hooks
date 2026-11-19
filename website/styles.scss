@@ -108,7 +108,8 @@ textarea {
   min-height: 96px;
   resize: vertical;
 }
-input[type="checkbox"] {
+input[type="checkbox"],
+input[type="radio"] {
   accent-color: var(--accent);
   width: 16px;
   height: 16px;
@@ -1948,6 +1949,17 @@ dialog h3 {
   }
   &[data-phase="exiting"] {
     animation-name: demo-panel-exit;
+  }
+}
+.pre-enter-demo {
+  transition:
+    opacity 400ms ease,
+    transform 400ms ease;
+
+  &[data-phase="preEnter"],
+  &[data-phase="exiting"] {
+    opacity: 0;
+    transform: translateY(8px);
   }
 }
 @keyframes demo-panel-enter {

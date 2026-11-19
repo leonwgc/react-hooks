@@ -7,6 +7,8 @@ import Enhanced1 from "./useTransitionState/Enhanced1";
 import Enhanced1Source from "./useTransitionState/Enhanced1.tsx?raw";
 import Enhanced2 from "./useTransitionState/Enhanced2";
 import Enhanced2Source from "./useTransitionState/Enhanced2.tsx?raw";
+import Feature1 from "./useTransitionState/Feature1";
+import Feature1Source from "./useTransitionState/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="不播放 CSS 动画，也不会触发结束事件；阶段仍按 600ms 兜底完成，快速反向切换取消旧计时。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="preEnter 让 CSS transition 生效"
+        description="两个面板使用相同的 opacity 过渡；未开启 preEnter 时进入直接出现，开启后先以起始样式挂载两帧再淡入。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

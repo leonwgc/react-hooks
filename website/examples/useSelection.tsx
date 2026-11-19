@@ -7,6 +7,8 @@ import Enhanced1 from "./useSelection/Enhanced1";
 import Enhanced1Source from "./useSelection/Enhanced1.tsx?raw";
 import Enhanced2 from "./useSelection/Enhanced2";
 import Enhanced2Source from "./useSelection/Enhanced2.tsx?raw";
+import Feature1 from "./useSelection/Feature1";
+import Feature1Source from "./useSelection/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="设置最多可选数量，批量选择遵守上限；缩小上限或禁用已选项会自动裁剪。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="上限选择与一键清除"
+        description="maxSelected 为 3 时全选只选前 3 项，此时视为已全选，再次点击可清除全部选择。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

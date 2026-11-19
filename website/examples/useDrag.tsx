@@ -3,6 +3,8 @@ import Case1 from "./useDrag/Case1";
 import Case1Source from "./useDrag/Case1.tsx?raw";
 import Case2 from "./useDrag/Case2";
 import Case2Source from "./useDrag/Case2.tsx?raw";
+import Feature1 from "./useDrag/Feature1";
+import Feature1Source from "./useDrag/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -19,6 +21,13 @@ export default function Examples() {
         description="切换 disabled 后 draggable 状态变化，目标区域继续支持正常接收。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="拖拽源中途卸载后复位"
+        description="拖动开始 300ms 后卡片被移除，dragend 不再触发；drop 或下一次按下指针时 dragging 自动复位。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

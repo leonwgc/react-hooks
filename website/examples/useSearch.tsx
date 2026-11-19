@@ -3,6 +3,8 @@ import Case1 from "./useSearch/Case1";
 import Case1Source from "./useSearch/Case1.tsx?raw";
 import Case2 from "./useSearch/Case2";
 import Case2Source from "./useSearch/Case2.tsx?raw";
+import Feature1 from "./useSearch/Feature1";
+import Feature1Source from "./useSearch/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -19,6 +21,13 @@ export default function Examples() {
         description="重复提交增加 revision；reset 恢复初始条件并产生一次新的查询版本。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="合并与整体替换草稿"
+        description="setDraft 浅合并会保留旧条件，replaceDraft 会用预设整体替换草稿。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

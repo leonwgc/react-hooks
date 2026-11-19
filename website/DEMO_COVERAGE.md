@@ -88,3 +88,25 @@
 | useAsyncQueue      | 优先级与队列容量       | 失败重试与超时取消     |
 | useUndoRedo        | 连续输入合并与标签     | 事务提交与回滚         |
 | useTransitionState | 动画结束与生命周期回调 | 缺失结束事件的兜底     |
+
+## 缺陷修复与新特性场景
+
+以下 15 组演示对应缺陷修复中新增或改变的行为，追加在各 Hook 已有场景之后，合计 165 组补充演示。
+
+| Hook               | 新增场景                        | 演示的行为                                        |
+| ------------------ | ------------------------------- | ------------------------------------------------- |
+| useTransitionState | preEnter 让 CSS transition 生效 | `preEnter` 选项与 `preEnter` 阶段                 |
+| useForm            | 单选组、复选框组、多选与文件    | `register(path, { value })` 与 `{ type: "file" }` |
+| useForm            | 失焦只校验当前字段              | onBlur/onChange 只校验触发字段                    |
+| useAsyncQueue      | 超时重试与迟到结果              | `retryOnTimeout`、`remove`                        |
+| useUpload          | 容量上限与重试替换              | 透传队列选项、`accepted`、重试替换原行            |
+| useSortable        | 自定义播报文案与失焦取消        | `messages`、焦点离开取消键盘排序                  |
+| useLongPress       | 长按后不触发点击                | 拦截随后的 click、回调保留 `currentTarget`        |
+| useInfiniteScroll  | 以 null 作为首页游标            | `initialCursor: null`                             |
+| useSearch          | 合并与整体替换草稿              | `replaceDraft`                                    |
+| useSelection       | 上限选择与一键清除              | `maxSelected` 下 `toggleAll` 可清除               |
+| useRequest         | 本地修改中止旧请求              | `mutate` 中止进行中的请求                         |
+| useQuery           | 按单词边界批量失效              | 非精确字符串失效不匹配 `users`                    |
+| usePagination      | 连续翻页不丢步                  | 同一事件内多次 `next`                             |
+| useDrag            | 拖拽源中途卸载后复位            | 全局 drop/pointerdown 复位 `dragging`             |
+| useImage           | 切换图片不闪现旧结果            | 新 `src` 立即报告 loading                         |

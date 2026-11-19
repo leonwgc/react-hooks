@@ -7,6 +7,8 @@ import Enhanced1 from "./useAsyncQueue/Enhanced1";
 import Enhanced1Source from "./useAsyncQueue/Enhanced1.tsx?raw";
 import Enhanced2 from "./useAsyncQueue/Enhanced2";
 import Enhanced2Source from "./useAsyncQueue/Enhanced2.tsx?raw";
+import Feature1 from "./useAsyncQueue/Feature1";
+import Feature1Source from "./useAsyncQueue/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="前两次失败后成功；另一个任务超时后终止，不继续重试。可在退避等待中取消全部。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="超时重试与迟到结果"
+        description="开启 retryOnTimeout 后首次超时会自动重试；被超时的旧尝试稍后返回也会被忽略，已结束记录可单独移除。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

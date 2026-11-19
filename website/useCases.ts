@@ -275,6 +275,11 @@ export const useCases = {
         title: "移动阈值与主动取消",
         description: "按住后移动超过 4px 会取消；取消按钮也可结束等待。",
       },
+      {
+        title: "长按后不触发点击",
+        description:
+          "短按正常计数；长按触发回调后松手不会再额外计一次点击，回调中仍可读取 currentTarget。",
+      },
     ],
   },
   useLeaveConfirm: {
@@ -580,6 +585,11 @@ export const useCases = {
         description:
           "切换 disabled 后 draggable 状态变化，目标区域继续支持正常接收。",
       },
+      {
+        title: "拖拽源中途卸载后复位",
+        description:
+          "拖动开始 300ms 后卡片被移除，dragend 不再触发；drop 或下一次按下指针时 dragging 自动复位。",
+      },
     ],
   },
   useDrop: {
@@ -657,6 +667,11 @@ export const useCases = {
         description:
           "不设置备用图时，损坏图片进入 error；切换正确地址后可恢复。",
       },
+      {
+        title: "切换图片不闪现旧结果",
+        description:
+          "切换 src 后立即报告新图片的 loading，不会短暂返回上一张图片的 loaded 状态；第三张为失败示例。",
+      },
     ],
   },
   useBroadcastChannel: {
@@ -687,6 +702,11 @@ export const useCases = {
         title: "总数减少与越界修正",
         description: "先跳到最后一页，再减少总数或清空数据，观察页码限制。",
       },
+      {
+        title: "连续翻页不丢步",
+        description:
+          "同一事件中连续调用三次 next 会前进三页，并在最后一页处停止。",
+      },
     ],
   },
   useSearch: {
@@ -701,6 +721,11 @@ export const useCases = {
         title: "同条件刷新与恢复默认",
         description:
           "重复提交增加 revision；reset 恢复初始条件并产生一次新的查询版本。",
+      },
+      {
+        title: "合并与整体替换草稿",
+        description:
+          "setDraft 浅合并会保留旧条件，replaceDraft 会用预设整体替换草稿。",
       },
     ],
   },
@@ -728,6 +753,11 @@ export const useCases = {
         description:
           "设置最多可选数量，批量选择遵守上限；缩小上限或禁用已选项会自动裁剪。",
       },
+      {
+        title: "上限选择与一键清除",
+        description:
+          "maxSelected 为 3 时全选只选前 3 项，此时视为已全选，再次点击可清除全部选择。",
+      },
     ],
   },
   useRequest: {
@@ -754,6 +784,11 @@ export const useCases = {
         description:
           "快请求不闪烁 loading；慢请求延迟显示加载，取消不触发 onFinally。",
       },
+      {
+        title: "本地修改中止旧请求",
+        description:
+          "慢请求进行中调用 mutate 会中止该请求，旧响应不会覆盖本地修改。",
+      },
     ],
   },
   useInfiniteScroll: {
@@ -768,6 +803,11 @@ export const useCases = {
       {
         title: "前插历史与重复项去重",
         description: "每页含一个重复记录，按 id 去重，并把旧消息插入前方。",
+      },
+      {
+        title: "以 null 作为首页游标",
+        description:
+          "首页请求不带游标，initialCursor 为 null；之后使用服务端返回的令牌，nextCursor 为 null 时结束。",
       },
     ],
   },
@@ -795,6 +835,11 @@ export const useCases = {
         description:
           "前两次失败后成功；另一个任务超时后终止，不继续重试。可在退避等待中取消全部。",
       },
+      {
+        title: "超时重试与迟到结果",
+        description:
+          "开启 retryOnTimeout 后首次超时会自动重试；被超时的旧尝试稍后返回也会被忽略，已结束记录可单独移除。",
+      },
     ],
   },
   useUpload: {
@@ -810,6 +855,11 @@ export const useCases = {
         title: "暂停排队与恢复传输",
         description:
           "暂停只阻止新任务启动，正在进行的任务继续；可取消全部并清除已结束任务。",
+      },
+      {
+        title: "容量上限与重试替换",
+        description:
+          "容量为 2 时第三个文件被拒绝并返回 accepted: false；失败文件重试会替换原行而不是新增重复项。",
       },
     ],
   },
@@ -868,6 +918,16 @@ export const useCases = {
         description:
           "勾选移除策略后，隐藏字段会注销其值与校验；默认隐藏后仍保留。",
       },
+      {
+        title: "单选组、复选框组、多选与文件",
+        description:
+          "register 传入 value 绑定 radio 与复选框组，数组字段配合 select multiple，type: 'file' 时值为 File[]。",
+      },
+      {
+        title: "失焦只校验当前字段",
+        description:
+          "onBlur 模式下离开姓名只显示姓名错误，未交互的邮箱不会提前报错。",
+      },
     ],
   },
   useFieldArray: {
@@ -923,6 +983,11 @@ export const useCases = {
         title: "键盘取消与边界移动",
         description:
           "聚焦项目后按空格拾取、方向键移动、Esc 恢复原顺序；越界 move 返回 false。",
+      },
+      {
+        title: "自定义播报文案与失焦取消",
+        description:
+          "通过 messages 提供英文读屏文案；键盘排序过程中焦点离开列表会取消并恢复原顺序。",
       },
     ],
   },
@@ -980,6 +1045,11 @@ export const useCases = {
         title: "选择数据与隔离订阅",
         description:
           "两个订阅者共用缓存，计数组件只订阅 count；修改备注不会重绘该组件。",
+      },
+      {
+        title: "按单词边界批量失效",
+        description:
+          "非精确失效 user 会刷新 user 与 user:1，但不会误伤 users。",
       },
     ],
   },
@@ -1082,6 +1152,11 @@ export const useCases = {
         title: "缺失结束事件的兜底",
         description:
           "不播放 CSS 动画，也不会触发结束事件；阶段仍按 600ms 兜底完成，快速反向切换取消旧计时。",
+      },
+      {
+        title: "preEnter 让 CSS transition 生效",
+        description:
+          "两个面板使用相同的 opacity 过渡；未开启 preEnter 时进入直接出现，开启后先以起始样式挂载两帧再淡入。",
       },
     ],
   },

@@ -3,6 +3,8 @@ import Case1 from "./useLongPress/Case1";
 import Case1Source from "./useLongPress/Case1.tsx?raw";
 import Case2 from "./useLongPress/Case2";
 import Case2Source from "./useLongPress/Case2.tsx?raw";
+import Feature1 from "./useLongPress/Feature1";
+import Feature1Source from "./useLongPress/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -19,6 +21,13 @@ export default function Examples() {
         description="按住后移动超过 4px 会取消；取消按钮也可结束等待。"
       >
         <Case2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="长按后不触发点击"
+        description="短按正常计数；长按触发回调后松手不会再额外计一次点击，回调中仍可读取 currentTarget。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );

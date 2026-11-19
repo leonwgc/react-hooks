@@ -7,6 +7,8 @@ import Enhanced1 from "./useQuery/Enhanced1";
 import Enhanced1Source from "./useQuery/Enhanced1.tsx?raw";
 import Enhanced2 from "./useQuery/Enhanced2";
 import Enhanced2Source from "./useQuery/Enhanced2.tsx?raw";
+import Feature1 from "./useQuery/Feature1";
+import Feature1Source from "./useQuery/Feature1.tsx?raw";
 export default function Examples() {
   return (
     <div className="additional-demos">
@@ -37,6 +39,13 @@ export default function Examples() {
         description="两个订阅者共用缓存，计数组件只订阅 count；修改备注不会重绘该组件。"
       >
         <Enhanced2 />
+      </Scenario>
+      <Scenario
+        source={Feature1Source}
+        title="按单词边界批量失效"
+        description="非精确失效 user 会刷新 user 与 user:1，但不会误伤 users。"
+      >
+        <Feature1 />
       </Scenario>
     </div>
   );
